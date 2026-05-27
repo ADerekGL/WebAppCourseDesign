@@ -56,7 +56,16 @@ export const api = {
   updateAddress: (id, body, token) => apiFetch(`/profile/addresses/${id}`, { method: "PATCH", body: JSON.stringify(body) }, token),
   deleteAddress: (id, token) => apiFetch(`/profile/addresses/${id}`, { method: "DELETE" }, token),
   dashboard: (token) => apiFetch("/analytics/dashboard", {}, token),
-  warRoom: (token) => apiFetch("/analytics/dashboard/war-room", {}, token),
+  warRoom: async (token) => {
+    try {
+      return await apiFetch("/analytics/war-room", {}, token);
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) {
+        return apiFetch("/analytics/dashboard/war-room", {}, token);
+      }
+      throw error;
+    }
+  },
   categoryPerformance: (token) => apiFetch("/analytics/category-performance", {}, token),
   geography: (token) => apiFetch("/analytics/geography", {}, token),
   rfm: (token) => apiFetch("/analytics/rfm", {}, token),

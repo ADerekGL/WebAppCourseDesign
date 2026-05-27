@@ -54,6 +54,7 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [range, setRange] = useState("today");
   const [loading, setLoading] = useState({});
+  const [errors, setErrors] = useState({});
   const [publicData, setPublicData] = useState({
     banners: [],
     categories: [],
@@ -211,6 +212,13 @@ export default function App() {
     setToast({ type: "error", message: error.message || "Request failed" });
   }
 
+  function messageFromError(error) {
+    if (error instanceof ApiError) {
+      return error.payload?.detail || error.message || "Request failed";
+    }
+    return error?.message || "Request failed";
+  }
+
   async function withLoading(key, task) {
     setLoading((current) => ({ ...current, [key]: true }));
     try {
@@ -328,6 +336,7 @@ export default function App() {
 
   async function loadDashboardData(showSpinner) {
     if (!auth || !isStaff) return;
+    setErrors((current) => ({ ...current, dashboard: null }));
     if (showSpinner) {
       await withLoading("dashboard", async () => {
         await refreshDashboardPayload();
@@ -343,18 +352,7 @@ export default function App() {
 
   async function refreshDashboardPayload() {
     const forecastRange = RANGE_OPTIONS.find((item) => item.value === range)?.forecastDays || 7;
-    const [
-      dashboard,
-      warRoom,
-      categoryPerformance,
-      geography,
-      rfm,
-      cohorts,
-      forecast,
-      orders,
-      stockouts,
-      inventoryAlerts,
-    ] = await Promise.all([
+    const results = await Promise.allSettled([
       api.dashboard(auth.access_token),
       api.warRoom(auth.access_token),
       api.categoryPerformance(auth.access_token),
@@ -366,35 +364,52 @@ export default function App() {
       api.stockouts(auth.access_token),
       api.inventoryAlerts(auth.access_token),
     ]);
+    const [
+      dashboardResult,
+      warRoomResult,
+      categoryPerformanceResult,
+      geographyResult,
+      rfmResult,
+      cohortsResult,
+      forecastResult,
+      ordersResult,
+      stockoutsResult,
+      inventoryAlertsResult,
+    ] = results;
+    const dashboardError = results.find((item) => item.status === "rejected");
+    if (dashboardError) {
+      setErrors((current) => ({
+        ...current,
+        dashboard: messageFromError(dashboardError.reason),
+      }));
+    }
     setAdminData((current) => ({
       ...current,
-      dashboard,
-      warRoom,
-      categoryPerformance,
-      geography,
-      rfm,
-      cohorts,
-      forecast,
-      orders,
-      stockouts,
-      inventoryAlerts,
+      dashboard: dashboardResult.status === "fulfilled" ? dashboardResult.value : current.dashboard,
+      warRoom: warRoomResult.status === "fulfilled" ? warRoomResult.value : current.warRoom,
+      categoryPerformance: categoryPerformanceResult.status === "fulfilled" ? categoryPerformanceResult.value : current.categoryPerformance,
+      geography: geographyResult.status === "fulfilled" ? geographyResult.value : current.geography,
+      rfm: rfmResult.status === "fulfilled" ? rfmResult.value : current.rfm,
+      cohorts: cohortsResult.status === "fulfilled" ? cohortsResult.value : current.cohorts,
+      forecast: forecastResult.status === "fulfilled" ? forecastResult.value : current.forecast,
+      orders: ordersResult.status === "fulfilled" ? ordersResult.value : current.orders,
+      stockouts: stockoutsResult.status === "fulfilled" ? stockoutsResult.value : current.stockouts,
+      inventoryAlerts: inventoryAlertsResult.status === "fulfilled" ? inventoryAlertsResult.value : current.inventoryAlerts,
     }));
+    if (
+      dashboardResult.status === "rejected" &&
+      warRoomResult.status === "rejected" &&
+      !adminData.warRoom
+    ) {
+      throw warRoomResult.reason;
+    }
   }
 
   async function loadAdminView() {
     if (!auth || !isStaff) return;
+    setErrors((current) => ({ ...current, admin: null }));
     await withLoading("admin", async () => {
-      const [
-        summary,
-        orders,
-        adminUsers,
-        suspicious,
-        funnel,
-        logs,
-        stockouts,
-        inventoryAlerts,
-        salesAccounts,
-      ] = await Promise.all([
+      const results = await Promise.allSettled([
         api.adminSummary(auth.access_token),
         api.adminOrders({ limit: 50, sort: "desc" }, auth.access_token),
         api.adminUsers(auth.access_token),
@@ -405,18 +420,39 @@ export default function App() {
         api.inventoryAlerts(auth.access_token),
         isAdmin ? api.salesAccounts(auth.access_token) : Promise.resolve([]),
       ]);
+      const [
+        summaryResult,
+        ordersResult,
+        adminUsersResult,
+        suspiciousResult,
+        funnelResult,
+        logsResult,
+        stockoutsResult,
+        inventoryAlertsResult,
+        salesAccountsResult,
+      ] = results;
+      const adminError = results.find((item) => item.status === "rejected");
+      if (adminError) {
+        setErrors((current) => ({
+          ...current,
+          admin: messageFromError(adminError.reason),
+        }));
+      }
       setAdminData((current) => ({
         ...current,
-        summary,
-        orders,
-        adminUsers,
-        suspicious,
-        funnel,
-        logs,
-        stockouts,
-        inventoryAlerts,
-        salesAccounts,
+        summary: summaryResult.status === "fulfilled" ? summaryResult.value : current.summary,
+        orders: ordersResult.status === "fulfilled" ? ordersResult.value : current.orders,
+        adminUsers: adminUsersResult.status === "fulfilled" ? adminUsersResult.value : current.adminUsers,
+        suspicious: suspiciousResult.status === "fulfilled" ? suspiciousResult.value : current.suspicious,
+        funnel: funnelResult.status === "fulfilled" ? funnelResult.value : current.funnel,
+        logs: logsResult.status === "fulfilled" ? logsResult.value : current.logs,
+        stockouts: stockoutsResult.status === "fulfilled" ? stockoutsResult.value : current.stockouts,
+        inventoryAlerts: inventoryAlertsResult.status === "fulfilled" ? inventoryAlertsResult.value : current.inventoryAlerts,
+        salesAccounts: salesAccountsResult.status === "fulfilled" ? salesAccountsResult.value : current.salesAccounts,
       }));
+      if (summaryResult.status === "rejected" && !adminData.summary) {
+        throw summaryResult.reason;
+      }
     });
   }
 
@@ -682,12 +718,14 @@ export default function App() {
               <DashboardPage
                 data={adminData}
                 loading={loading.dashboard}
+                error={errors.dashboard}
                 range={range}
                 setRange={setRange}
+                onRetry={() => void loadDashboardData(true)}
               />
             ) : null}
             {route === "/admin" ? (
-              <AdminOverviewPage summary={adminData.summary} loading={loading.admin} navigate={navigate} />
+              <AdminOverviewPage summary={adminData.summary} loading={loading.admin} error={errors.admin} navigate={navigate} onRetry={() => void loadAdminView()} />
             ) : null}
             {route === "/admin/products" ? (
               <AdminProductsPage
@@ -701,12 +739,18 @@ export default function App() {
                 categoryForm={categoryForm}
                 setCategoryForm={setCategoryForm}
                 onSaveCategory={saveCategory}
+                loading={loading.admin}
+                error={errors.admin}
+                onRetry={() => void loadAdminView()}
               />
             ) : null}
             {route === "/admin/orders" ? (
               <AdminOrdersPage
                 orders={adminData.orders}
                 stockouts={adminData.stockouts}
+                loading={loading.admin}
+                error={errors.admin}
+                onRetry={() => void loadAdminView()}
               />
             ) : null}
             {route === "/admin/users" ? (
@@ -715,6 +759,9 @@ export default function App() {
                 selectedUser={adminData.selectedUser}
                 suspicious={adminData.suspicious}
                 onOpenUser={openUserDetail}
+                loading={loading.admin}
+                error={errors.admin}
+                onRetry={() => void loadAdminView()}
               />
             ) : null}
             {route === "/admin/reports" ? (
@@ -728,6 +775,9 @@ export default function App() {
                 funnel={adminData.funnel}
                 logs={adminData.logs}
                 inventoryAlerts={adminData.inventoryAlerts}
+                loading={loading.admin}
+                error={errors.admin}
+                onRetry={() => void loadAdminView()}
               />
             ) : null}
           </main>
@@ -1237,6 +1287,7 @@ function ProductPage({ productState, setProductState, loading, onBack, onAddToCa
               src={activeImage}
               fallbackKey={detail.category_name}
               alt={detail.name}
+              productId={detail.id}
               className="product-image product-image-detail"
               containerClassName="gallery-main product-image-shell"
               showLabel={false}
@@ -1252,6 +1303,7 @@ function ProductPage({ productState, setProductState, loading, onBack, onAddToCa
                     src={imageUrl}
                     fallbackKey={detail.category_name}
                     alt={`${detail.name} preview ${index + 1}`}
+                    productId={detail.id}
                     className="product-image thumbnail-image"
                     containerClassName="thumbnail-image-shell"
                     showLabel={false}
@@ -1353,6 +1405,7 @@ function CartPage({ cart, checkout, setCheckout, onSubmit, loading }) {
                   src={item.thumbnail_url || item.image_url}
                   fallbackKey={item.category_name}
                   alt={item.name}
+                  productId={item.product_id}
                   className="product-image cart-thumb-image"
                   containerClassName="cart-thumb-shell"
                   showLabel={false}
@@ -1544,6 +1597,7 @@ function ProfilePage({ profileData, setProfileData, onSaveAddress, onDeleteAddre
                     src={item.thumbnail_url || item.image_url}
                     fallbackKey={item.category_name}
                     alt={item.product_name}
+                    productId={item.product_id}
                     className="product-image cart-thumb-image"
                     containerClassName="cart-thumb-shell"
                     showLabel={false}
@@ -1569,8 +1623,24 @@ function ProfilePage({ profileData, setProfileData, onSaveAddress, onDeleteAddre
   );
 }
 
-function DashboardPage({ data, loading, range, setRange }) {
-  if (loading || !data.warRoom) return <LoadingPanel label="Loading war room dashboard..." dark />;
+function PageErrorState({ title, message, onRetry }) {
+  return (
+    <section className="panel loading-panel">
+      <div className="stack-list">
+        <h3>{title}</h3>
+        <p>{message}</p>
+        {onRetry ? <button onClick={onRetry}>Retry</button> : null}
+      </div>
+    </section>
+  );
+}
+
+function DashboardPage({ data, loading, error, range, setRange, onRetry }) {
+  if (loading && !data.warRoom) return <LoadingPanel label="Loading war room dashboard..." dark />;
+  if (!loading && error && !data.warRoom) {
+    return <PageErrorState title="Failed to load dashboard" message={error} onRetry={onRetry} />;
+  }
+  if (!data.warRoom) return <PageErrorState title="Dashboard unavailable" message="No dashboard data returned." onRetry={onRetry} />;
   return (
     <>
       <section className="dashboard-toolbar">
@@ -1622,8 +1692,12 @@ function DashboardPage({ data, loading, range, setRange }) {
   );
 }
 
-function AdminOverviewPage({ summary, loading, navigate }) {
-  if (loading || !summary) return <LoadingPanel label="Loading admin summary..." />;
+function AdminOverviewPage({ summary, loading, error, navigate, onRetry }) {
+  if (loading && !summary) return <LoadingPanel label="Loading admin summary..." />;
+  if (!loading && error && !summary) {
+    return <PageErrorState title="Failed to load admin summary" message={error} onRetry={onRetry} />;
+  }
+  if (!summary) return <PageErrorState title="Admin summary unavailable" message="No summary data returned." onRetry={onRetry} />;
   return (
     <>
       <section className="summary-grid">
@@ -1658,7 +1732,14 @@ function AdminProductsPage({
   categoryForm,
   setCategoryForm,
   onSaveCategory,
+  loading,
+  error,
+  onRetry,
 }) {
+  if (loading && !products.length) return <LoadingPanel label="Loading product management..." />;
+  if (!loading && error && !products.length) {
+    return <PageErrorState title="Failed to load products" message={error} onRetry={onRetry} />;
+  }
   function beginEdit(product) {
     setEditingProduct(product);
     setProductForm({
@@ -1771,8 +1852,12 @@ function AdminProductsPage({
   );
 }
 
-function AdminOrdersPage({ orders, stockouts }) {
+function AdminOrdersPage({ orders, stockouts, loading, error, onRetry }) {
   const [selectedOrder, setSelectedOrder] = useState(null);
+  if (loading && !orders.length) return <LoadingPanel label="Loading orders..." />;
+  if (!loading && error && !orders.length) {
+    return <PageErrorState title="Failed to load orders" message={error} onRetry={onRetry} />;
+  }
   return (
     <div className="admin-grid">
       <section className="panel span-2">
@@ -1838,7 +1923,11 @@ function AdminOrdersPage({ orders, stockouts }) {
   );
 }
 
-function AdminUsersPage({ users, selectedUser, suspicious, onOpenUser }) {
+function AdminUsersPage({ users, selectedUser, suspicious, onOpenUser, loading, error, onRetry }) {
+  if (loading && !users.length) return <LoadingPanel label="Loading users..." />;
+  if (!loading && error && !users.length) {
+    return <PageErrorState title="Failed to load users" message={error} onRetry={onRetry} />;
+  }
   return (
     <div className="admin-grid">
       <section className="panel span-2">
@@ -1917,7 +2006,11 @@ function AdminUsersPage({ users, selectedUser, suspicious, onOpenUser }) {
   );
 }
 
-function AdminReportsPage({ dashboard, categoryPerformance, geography, rfm, cohorts, forecast, funnel, logs, inventoryAlerts }) {
+function AdminReportsPage({ dashboard, categoryPerformance, geography, rfm, cohorts, forecast, funnel, logs, inventoryAlerts, loading, error, onRetry }) {
+  if (loading && !dashboard) return <LoadingPanel label="Loading reports..." />;
+  if (!loading && error && !dashboard) {
+    return <PageErrorState title="Failed to load reports" message={error} onRetry={onRetry} />;
+  }
   return (
     <div className="admin-grid">
       <ChartPanel className="span-2" title="Sales Report">
@@ -2025,21 +2118,21 @@ function StarRating({ value = 0 }) {
   return <span className="rating-stars">{"*".repeat(rounded)}{".".repeat(5 - rounded)}</span>;
 }
 
-function ProductImage({ src, fallbackKey, alt, className = "", containerClassName = "", showLabel = true }) {
-  const fallbackSrc = `/images/products/${categoryImageSlug(fallbackKey)}.jpg`;
-  const [currentSrc, setCurrentSrc] = useState(src || fallbackSrc);
-  const [loading, setLoading] = useState(Boolean(src || fallbackSrc));
+function ProductImage({ src, fallbackKey, alt, productId, className = "", containerClassName = "", showLabel = true }) {
+  const categoryFallbackSrc = `https://picsum.photos/seed/fallback${productId || categoryImageSlug(fallbackKey)}/400/400`;
+  const [currentSrc, setCurrentSrc] = useState(src || categoryFallbackSrc);
+  const [loading, setLoading] = useState(Boolean(src));
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    setCurrentSrc(src || fallbackSrc);
-    setLoading(Boolean(src || fallbackSrc));
+    setCurrentSrc(src || categoryFallbackSrc);
+    setLoading(Boolean(src));
     setFailed(false);
-  }, [src, fallbackSrc]);
+  }, [src, categoryFallbackSrc]);
 
   function handleError() {
-    if (currentSrc !== fallbackSrc) {
-      setCurrentSrc(fallbackSrc);
+    if (currentSrc !== categoryFallbackSrc) {
+      setCurrentSrc(categoryFallbackSrc);
       setLoading(true);
       return;
     }
@@ -2084,6 +2177,7 @@ function RecommendationStrip({ title, items, onOpen, onAdd }) {
               src={resolveProductImage(item)}
               fallbackKey={item.category_name}
               alt={item.product_name}
+              productId={item.product_id}
               className="product-image recommend-image"
               containerClassName="recommend-image-shell"
               showLabel={false}
@@ -2111,6 +2205,7 @@ function ProductCard({ item, onOpen, onAdd }) {
         src={resolveProductImage(item)}
         fallbackKey={item.category_name}
         alt={item.name || item.product_name}
+        productId={productId}
         className="product-image product-image-card"
         containerClassName="product-visual"
       />

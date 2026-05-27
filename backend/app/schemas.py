@@ -135,6 +135,8 @@ class ProductRead(BaseModel):
     rating_average: float = 0
     review_count: int = 0
 
+    model_config = {"from_attributes": True}
+
 
 class ProductReviewCreate(BaseModel):
     rating: int = Field(ge=1, le=5)

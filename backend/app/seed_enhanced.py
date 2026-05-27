@@ -110,6 +110,8 @@ CATEGORY_IMAGE_OFFSETS = {
     "Home": 5000,
     "Sports": 6000,
     "Beauty": 7000,
+    "Toys": 8000,
+    "Automotive": 9000,
 }
 
 
@@ -145,13 +147,13 @@ def seasonal_category_bias(month: int) -> dict[str, float]:
     return {"Electronics": 1.2, "Beauty": 1.1}
 
 
-def get_product_image_payload(product_id: int, category_name: str) -> tuple[str, str, list[str]]:
-    category_offset = CATEGORY_IMAGE_OFFSETS.get(category_name, 0)
-    seed = category_offset + product_id
-    image_url = f"https://picsum.photos/seed/{seed}/800/800"
-    thumbnail_url = f"https://picsum.photos/seed/{seed}/400/400"
-    gallery_urls = [f"https://picsum.photos/seed/{seed + offset}/800/800" for offset in range(3)]
-    return image_url, thumbnail_url, gallery_urls
+def get_product_image_urls(product_id: int, category_name: str) -> dict[str, str]:
+    category_seed_offset = CATEGORY_IMAGE_OFFSETS.get(category_name, 0)
+    seed = category_seed_offset + product_id
+    return {
+        "image_url": f"https://picsum.photos/seed/{seed}/800/800",
+        "thumbnail_url": f"https://picsum.photos/seed/{seed}/400/400",
+    }
 
 
 def create_categories(db) -> list[Category]:
@@ -299,6 +301,7 @@ def create_products(db, categories: list[Category], total: int = 240) -> list[Pr
         }.get(category_name, (30, 500))
         price = round(random.uniform(*price_base), 2)
         stock_quantity = random.randint(12, 320)
+        provisional_seed = CATEGORY_IMAGE_OFFSETS.get(category_name, 0) + index + 1
         product = Product(
             category_id=category.id,
             name=f"{brand} {category_name} Item {index + 1}",
@@ -310,15 +313,28 @@ def create_products(db, categories: list[Category], total: int = 240) -> list[Pr
             safety_stock=random.randint(8, 20),
             supplier_name=f"{brand} Supply Chain",
             base_weight=round(random.uniform(0.2, 8.0), 2),
+            image_url=f"https://picsum.photos/seed/{provisional_seed}/800/800",
+            thumbnail_url=f"https://picsum.photos/seed/{provisional_seed}/400/400",
+            image_urls=[f"https://picsum.photos/seed/{provisional_seed + offset}/800/800" for offset in range(3)],
+            gallery_json=[f"https://picsum.photos/seed/{provisional_seed + offset}/800/800" for offset in range(3)],
             tags_json=random.sample(PRODUCT_TAGS, k=random.randint(2, 4)),
             created_at=recent_datetime(),
             updated_at=recent_datetime(),
         )
         db.add(product)
         db.flush()
-        image_url, thumbnail_url, image_urls = get_product_image_payload(product.id, category_name)
-        product.image_url = image_url
-        product.thumbnail_url = thumbnail_url
+        image_payload = get_product_image_urls(product.id, category_name)
+        product.image_url = image_payload["image_url"]
+        product.thumbnail_url = image_payload["thumbnail_url"]
+        if not product.image_url:
+            product.image_url = f"https://picsum.photos/seed/generic{product.id}/800/800"
+        if not product.thumbnail_url:
+            product.thumbnail_url = f"https://picsum.photos/seed/generic{product.id}/400/400"
+        image_urls = [
+            product.image_url,
+            f"https://picsum.photos/seed/{CATEGORY_IMAGE_OFFSETS.get(category_name, 0) + product.id + 1}/800/800",
+            f"https://picsum.photos/seed/{CATEGORY_IMAGE_OFFSETS.get(category_name, 0) + product.id + 2}/800/800",
+        ]
         product.image_urls = image_urls
         product.gallery_json = image_urls
         products.append(product)
