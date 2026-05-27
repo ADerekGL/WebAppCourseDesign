@@ -80,6 +80,7 @@ export default function App() {
     boughtTogether: [],
     similar: [],
     selectedVariantId: null,
+    selectedImageUrl: null,
   });
   const [cart, setCart] = useState([]);
   const [checkout, setCheckout] = useState({ shipping_address: "", payment_method: "card", coupon_code: "" });
@@ -289,6 +290,7 @@ export default function App() {
         boughtTogether,
         similar,
         selectedVariantId: detail.variants?.find((variant) => variant.is_default)?.id || detail.variants?.[0]?.id || null,
+        selectedImageUrl: detail.image_url || detail.image_urls?.[0] || detail.thumbnail_url || null,
       });
     });
   }
@@ -458,6 +460,9 @@ export default function App() {
           product_id: product.id,
           variant_id: variant?.id || null,
           name: product.name,
+          image_url: variant?.image_url || product.image_url || null,
+          thumbnail_url: product.thumbnail_url || variant?.image_url || product.image_url || null,
+          category_name: product.category_name || "",
           variant_label: variant ? `${variant.color} / ${variant.size}` : "Default",
           quantity: 1,
           unit_price: product.price,
@@ -1196,8 +1201,19 @@ function SearchPage({ state, setState, categories, loading, onOpenProduct, onSea
 
 function ProductPage({ productState, setProductState, loading, onBack, onAddToCart, onOpenProduct }) {
   if (loading || !productState.detail) return <LoadingPanel label="Loading product detail..." />;
-  const { detail, reviews, boughtTogether, similar, selectedVariantId } = productState;
+  const { detail, reviews, boughtTogether, similar, selectedVariantId, selectedImageUrl } = productState;
   const selectedVariant = detail.variants?.find((variant) => variant.id === selectedVariantId) || detail.variants?.[0];
+  const galleryImages = Array.from(
+    new Set(
+      [
+        selectedVariant?.image_url,
+        detail.image_url,
+        detail.thumbnail_url,
+        ...(detail.image_urls || []),
+      ].filter(Boolean)
+    )
+  );
+  const activeImage = selectedImageUrl || galleryImages[0] || null;
   const stockLabel = selectedVariant?.stock_quantity <= 0
     ? "Out of Stock"
     : selectedVariant?.stock_quantity < 10
@@ -1217,15 +1233,29 @@ function ProductPage({ productState, setProductState, loading, onBack, onAddToCa
         </div>
         <div className="product-layout">
           <div className="gallery-column">
-            <div className="gallery-main" />
+            <ProductImage
+              src={activeImage}
+              fallbackKey={detail.category_name}
+              alt={detail.name}
+              className="product-image product-image-detail"
+              containerClassName="gallery-main product-image-shell"
+              showLabel={false}
+            />
             <div className="thumbnail-row">
-              {(detail.variants || []).slice(0, 5).map((variant) => (
+              {galleryImages.slice(0, 5).map((imageUrl, index) => (
                 <button
-                  key={variant.id}
-                  className={selectedVariantId === variant.id ? "thumbnail active" : "thumbnail"}
-                  onClick={() => setProductState((current) => ({ ...current, selectedVariantId: variant.id }))}
+                  key={`${imageUrl}-${index}`}
+                  className={activeImage === imageUrl ? "thumbnail active thumbnail-image-button" : "thumbnail thumbnail-image-button"}
+                  onClick={() => setProductState((current) => ({ ...current, selectedImageUrl: imageUrl }))}
                 >
-                  {variant.color || "Default"}
+                  <ProductImage
+                    src={imageUrl}
+                    fallbackKey={detail.category_name}
+                    alt={`${detail.name} preview ${index + 1}`}
+                    className="product-image thumbnail-image"
+                    containerClassName="thumbnail-image-shell"
+                    showLabel={false}
+                  />
                 </button>
               ))}
             </div>
@@ -1245,7 +1275,11 @@ function ProductPage({ productState, setProductState, loading, onBack, onAddToCa
                 <button
                   key={variant.id}
                   className={selectedVariantId === variant.id ? "variant-chip active" : "variant-chip"}
-                  onClick={() => setProductState((current) => ({ ...current, selectedVariantId: variant.id }))}
+                  onClick={() => setProductState((current) => ({
+                    ...current,
+                    selectedVariantId: variant.id,
+                    selectedImageUrl: variant.image_url || current.selectedImageUrl,
+                  }))}
                 >
                   {variant.color} / {variant.size}
                 </button>
@@ -1314,9 +1348,19 @@ function CartPage({ cart, checkout, setCheckout, onSubmit, loading }) {
         <div className="stack-list">
           {cart.map((item) => (
             <div className="list-row" key={`${item.product_id}-${item.variant_id || "base"}`}>
-              <div>
+              <div className="list-row-media">
+                <ProductImage
+                  src={item.thumbnail_url || item.image_url}
+                  fallbackKey={item.category_name}
+                  alt={item.name}
+                  className="product-image cart-thumb-image"
+                  containerClassName="cart-thumb-shell"
+                  showLabel={false}
+                />
+                <div>
                 <strong>{item.name}</strong>
                 <p>{item.variant_label}</p>
+                </div>
               </div>
               <span>{item.quantity} x CNY {item.unit_price.toFixed(2)}</span>
             </div>
@@ -1493,6 +1537,25 @@ function ProfilePage({ profileData, setProfileData, onSaveAddress, onDeleteAddre
       {profileData.orderModal ? (
         <Modal title={`Order #${profileData.orderModal.id}`} onClose={() => setProfileData((current) => ({ ...current, orderModal: null }))}>
           <div className="stack-list">
+            {(profileData.orderModal.items || []).map((item) => (
+              <div className="list-row" key={`${profileData.orderModal.id}-${item.product_id}`}>
+                <div className="list-row-media">
+                  <ProductImage
+                    src={item.thumbnail_url || item.image_url}
+                    fallbackKey={item.category_name}
+                    alt={item.product_name}
+                    className="product-image cart-thumb-image"
+                    containerClassName="cart-thumb-shell"
+                    showLabel={false}
+                  />
+                  <div>
+                    <strong>{item.product_name}</strong>
+                    <p>{item.quantity} x CNY {Number(item.unit_price).toFixed(2)}</p>
+                  </div>
+                </div>
+                <span>CNY {Number(item.quantity * item.unit_price).toFixed(2)}</span>
+              </div>
+            ))}
             {profileData.orderModal.timeline.map((step) => (
               <div className="timeline-step" key={`${profileData.orderModal.id}-${step.status}-${step.created_at}`}>
                 <strong>{step.status}</strong>
@@ -1943,6 +2006,70 @@ function ProductSection({ title, items, onOpen, onAdd }) {
   );
 }
 
+function categoryImageSlug(value) {
+  return String(value || "generic")
+    .split("/")[0]
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "generic";
+}
+
+function resolveProductImage(item) {
+  if (!item) return null;
+  return item.thumbnail_url || item.image_url || item.image_urls?.[0] || null;
+}
+
+function StarRating({ value = 0 }) {
+  const rounded = Math.max(0, Math.min(5, Math.round(Number(value) || 0)));
+  return <span className="rating-stars">{"*".repeat(rounded)}{".".repeat(5 - rounded)}</span>;
+}
+
+function ProductImage({ src, fallbackKey, alt, className = "", containerClassName = "", showLabel = true }) {
+  const fallbackSrc = `/images/products/${categoryImageSlug(fallbackKey)}.jpg`;
+  const [currentSrc, setCurrentSrc] = useState(src || fallbackSrc);
+  const [loading, setLoading] = useState(Boolean(src || fallbackSrc));
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setCurrentSrc(src || fallbackSrc);
+    setLoading(Boolean(src || fallbackSrc));
+    setFailed(false);
+  }, [src, fallbackSrc]);
+
+  function handleError() {
+    if (currentSrc !== fallbackSrc) {
+      setCurrentSrc(fallbackSrc);
+      setLoading(true);
+      return;
+    }
+    setFailed(true);
+    setLoading(false);
+  }
+
+  return (
+    <div className={`product-image-frame ${containerClassName}`.trim()}>
+      {loading ? <div className="image-skeleton" /> : null}
+      {!failed ? (
+        <img
+          src={currentSrc}
+          alt={alt}
+          className={`${className} ${loading ? "is-loading" : ""}`.trim()}
+          loading="lazy"
+          onLoad={() => setLoading(false)}
+          onError={handleError}
+        />
+      ) : null}
+      {failed ? (
+        <div className="product-image-fallback" aria-hidden="true">
+          <span className="product-image-icon">[]</span>
+          {showLabel ? <span>{fallbackKey || "Product"}</span> : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function RecommendationStrip({ title, items, onOpen, onAdd }) {
   return (
     <section className="panel">
@@ -1953,13 +2080,21 @@ function RecommendationStrip({ title, items, onOpen, onAdd }) {
       <div className="recommend-grid">
         {items.map((item) => (
           <article className="recommend-card" key={item.product_id}>
+            <ProductImage
+              src={resolveProductImage(item)}
+              fallbackKey={item.category_name}
+              alt={item.product_name}
+              className="product-image recommend-image"
+              containerClassName="recommend-image-shell"
+              showLabel={false}
+            />
             <div>
               <strong>{item.product_name}</strong>
               <p>{item.category_name || item.reason}</p>
             </div>
             <div className="quick-actions">
               <button className="ghost-button" onClick={() => onOpen(item.product_id)}>Open</button>
-              {onAdd ? <button onClick={() => onAdd({ id: item.product_id, name: item.product_name, price: item.score || 99 }, null)}>Add</button> : null}
+              {onAdd ? <button onClick={() => onAdd({ id: item.product_id, name: item.product_name, price: item.score || 99, image_url: item.image_url, thumbnail_url: item.thumbnail_url, category_name: item.category_name }, null)}>Add</button> : null}
             </div>
           </article>
         ))}
@@ -1972,10 +2107,20 @@ function ProductCard({ item, onOpen, onAdd }) {
   const productId = item.id || item.product_id;
   return (
     <article className="product-card">
-      <div className="product-visual" />
+      <ProductImage
+        src={resolveProductImage(item)}
+        fallbackKey={item.category_name}
+        alt={item.name || item.product_name}
+        className="product-image product-image-card"
+        containerClassName="product-visual"
+      />
       <span className="tag">{item.category_name || "Category"}</span>
       <h4>{item.name || item.product_name}</h4>
       <p>{item.description || "Recommendation generated from the seeded dataset and browsing behavior."}</p>
+      <div className="product-meta">
+        <StarRating value={item.rating_average} />
+        <span>{item.review_count ? `${item.review_count} reviews` : "New listing"}</span>
+      </div>
       <div className="list-row compact">
         <strong>CNY {Number(item.price || item.score || 0).toFixed(2)}</strong>
         {item.stock_quantity !== undefined ? <span>Stock {item.stock_quantity}</span> : null}

@@ -85,13 +85,15 @@ class ProductCreate(BaseModel):
     description: str
     price: float
     stock_quantity: int
-    image_url: str = ""
+    image_url: Optional[str] = None
+    thumbnail_url: Optional[str] = None
     sku: str = ""
     brand: str = ""
     safety_stock: int = 10
     supplier_name: str = ""
     base_weight: float = 0
     tags_json: list[str] = Field(default_factory=list)
+    image_urls: list[str] = Field(default_factory=list)
     gallery_json: list[str] = Field(default_factory=list)
     variants: list[ProductVariantCreate] = Field(default_factory=list)
 
@@ -103,12 +105,14 @@ class ProductUpdate(BaseModel):
     price: Optional[float] = None
     stock_quantity: Optional[int] = None
     image_url: Optional[str] = None
+    thumbnail_url: Optional[str] = None
     is_active: Optional[bool] = None
     brand: Optional[str] = None
     safety_stock: Optional[int] = None
     supplier_name: Optional[str] = None
     base_weight: Optional[float] = None
     tags_json: Optional[list[str]] = None
+    image_urls: Optional[list[str]] = None
     gallery_json: Optional[list[str]] = None
 
 
@@ -120,7 +124,9 @@ class ProductRead(BaseModel):
     description: str
     price: float
     stock_quantity: int
-    image_url: str
+    image_url: Optional[str] = None
+    thumbnail_url: Optional[str] = None
+    image_urls: list[str] = Field(default_factory=list)
     is_active: bool
     sku: str = ""
     brand: str = ""
@@ -164,6 +170,9 @@ class OrderItemRead(BaseModel):
     quantity: int
     unit_price: float
     variant_id: Optional[int] = None
+    image_url: Optional[str] = None
+    thumbnail_url: Optional[str] = None
+    category_name: str = ""
 
 
 class OrderTimelineRead(BaseModel):
@@ -222,6 +231,8 @@ class RecommendationItem(BaseModel):
     score: float
     reason: Literal["co_occurrence", "collaborative_filtering", "content_based", "business_rule", "fallback"]
     category_name: str = ""
+    image_url: Optional[str] = None
+    thumbnail_url: Optional[str] = None
 
 
 class SalesAccountCreate(BaseModel):

@@ -35,6 +35,8 @@ def serialize_product(product: Product) -> ProductRead:
         price=product.price,
         stock_quantity=product.stock_quantity,
         image_url=product.image_url,
+        thumbnail_url=product.thumbnail_url,
+        image_urls=product.image_urls or product.gallery_json or ([product.image_url] if product.image_url else []),
         is_active=product.is_active,
         sku=product.sku,
         brand=product.brand,
@@ -151,6 +153,10 @@ def create_product(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
 
     product_data = payload.model_dump(exclude={"variants"})
+    if not product_data.get("image_urls") and product_data.get("gallery_json"):
+        product_data["image_urls"] = product_data["gallery_json"]
+    if not product_data.get("gallery_json") and product_data.get("image_urls"):
+        product_data["gallery_json"] = product_data["image_urls"]
     if not product_data["sku"]:
         product_data["sku"] = f"SKU-{payload.category_id}-{int(datetime.utcnow().timestamp() * 1000)}"
 
@@ -182,6 +188,8 @@ def update_product(
     if not product:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
     for field, value in payload.model_dump(exclude_none=True).items():
+        if field == "image_urls":
+            setattr(product, "gallery_json", value)
         setattr(product, field, value)
     db.commit()
     db.refresh(product)

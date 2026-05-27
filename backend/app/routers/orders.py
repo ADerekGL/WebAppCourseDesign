@@ -46,6 +46,9 @@ def serialize_order(order: Order) -> OrderRead:
                 quantity=item.quantity,
                 unit_price=item.unit_price,
                 variant_id=item.variant_id,
+                image_url=item.product.image_url,
+                thumbnail_url=item.product.thumbnail_url,
+                category_name=item.product.category.name,
             )
             for item in order.items
         ],
@@ -243,6 +246,9 @@ def list_orders(
                     "product_name": item.product.name,
                     "quantity": item.quantity,
                     "variant_id": item.variant_id,
+                    "image_url": item.product.image_url,
+                    "thumbnail_url": item.product.thumbnail_url,
+                    "category_name": item.product.category.name,
                 }
                 for item in order.items
             ],
