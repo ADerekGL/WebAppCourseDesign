@@ -1,38 +1,38 @@
-# System Design Report
+# 系统设计报告
 
-## 1. Architecture
+## 1. 架构
 
-The system follows a layered architecture:
+系统采用分层架构：
 
 ```text
-React Frontend
+React 前端
     |
 REST API
     |
-FastAPI Routers
+FastAPI 路由层
     |
-Service Layer
+服务层
     |
 SQLAlchemy ORM
     |
-PostgreSQL / SQLite(dev)
+PostgreSQL / SQLite（开发）
 ```
 
-Redis is reserved for caching sessions, hot analytics results, and rate-limiting counters.
+Redis 预留用于缓存会话、热点分析结果以及限流计数器。
 
-## 2. Main Modules
+## 2. 主要模块
 
-- Auth Module
-- Product & Category Module
-- Order Module
-- Event Logging Module
-- Analytics Module
-- Recommendation Module
-- Admin Control Module
+- 认证模块
+- 商品与分类模块
+- 订单模块
+- 事件日志模块
+- 数据分析模块
+- 推荐系统模块
+- 管理控制模块
 
-## 3. Database Design
+## 3. 数据库设计
 
-### Core Entities
+### 核心实体
 
 - `users`
 - `categories`
@@ -41,50 +41,49 @@ Redis is reserved for caching sessions, hot analytics results, and rate-limiting
 - `order_items`
 - `event_logs`
 
-### Normalization
+### 规范化说明
 
-The schema adheres to 3NF:
+数据库模式遵循第三范式（3NF）：
 
-- User, product, category, and order data are separated by responsibility.
-- Order items store product snapshots through quantity and unit price.
-- Event logs store behavioral and operational traces separately from transactions.
+- 用户、商品、分类和订单数据按职责拆分；
+- 订单项通过数量与单价保存商品快照；
+- 事件日志将行为轨迹与交易数据分离存储。
 
-## 4. ER Summary
+## 4. ER 摘要
 
 ```text
 User 1 --- n Order 1 --- n OrderItem n --- 1 Product n --- 1 Category
 User 1 --- n EventLog
 ```
 
-## 5. Big Data Solution
+## 5. 大数据方案
 
-The event table acts as the collection layer for:
+事件表作为采集层，用于记录：
 
-- login behavior
-- browsing behavior
-- purchase behavior
-- internal operations
+- 登录行为
+- 浏览行为
+- 购买行为
+- 内部操作行为
 
-Analytics services convert relational records into Pandas DataFrames for:
+分析服务将关系型记录转换为 Pandas DataFrame，用于实现：
 
-- top-seller aggregation
-- rolling trend analysis
-- anomaly inspection
-- user segmentation
-- collaborative filtering
+- 热销商品聚合
+- 滚动趋势分析
+- 异常检测
+- 用户分层
+- 协同过滤
 
-## 6. Risk Assessment
+## 6. 风险评估
 
-### Technical Risks
+### 技术风险
 
-- Sparse data can weaken recommendation quality.
-- Forecast accuracy will be limited in early stages.
-- SQLite/PostgreSQL differences can affect local-vs-prod testing.
+- 数据稀疏会削弱推荐质量；
+- 在早期阶段，预测精度会有限；
+- SQLite 与 PostgreSQL 的差异会影响本地与生产一致性。
 
-### PM Contingencies
+### 项目管理预案
 
-- Keep analytics algorithms modular and replaceable.
-- Provide fallback recommendations for sparse data.
-- Use environment-driven database configuration.
-- Freeze API contracts before frontend integration.
-
+- 保持分析算法模块化、可替换；
+- 在稀疏数据场景下提供兜底推荐；
+- 使用环境变量驱动数据库配置；
+- 在前端联调前冻结 API 合约。
