@@ -581,7 +581,7 @@ export default function App() {
     : routeMeta.customerTitle;
 
   return (
-    <div className={route === "/dashboard" ? "app app-dark" : "app"}>
+    <div className={route.startsWith("/dashboard") || route.startsWith("/admin") ? "app app-dark app-staff" : "app app-dark"}>
       <Header
         auth={auth}
         route={route}
@@ -610,7 +610,7 @@ export default function App() {
       ) : null}
 
       {((auth && !isStaff) || (!auth && route !== "/")) ? (
-        <main className="shell">
+        <main className="shell page-enter">
           {auth ? (
             <HeroSummary
               title={pageTitle}
@@ -670,61 +670,66 @@ export default function App() {
       ) : null}
 
       {auth && isStaff ? (
-        <main className={route === "/dashboard" ? "dashboard-shell" : "shell admin-shell"}>
-          {route === "/dashboard" ? (
-            <DashboardPage
-              data={adminData}
-              loading={loading.dashboard}
-              range={range}
-              setRange={setRange}
-            />
-          ) : null}
-          {route === "/admin" ? (
-            <AdminOverviewPage summary={adminData.summary} loading={loading.admin} navigate={navigate} />
-          ) : null}
-          {route === "/admin/products" ? (
-            <AdminProductsPage
-              products={publicData.homepageProducts}
-              categories={publicData.categories}
-              productForm={productForm}
-              setProductForm={setProductForm}
-              editingProduct={editingProduct}
-              setEditingProduct={setEditingProduct}
-              onSaveProduct={saveProduct}
-              categoryForm={categoryForm}
-              setCategoryForm={setCategoryForm}
-              onSaveCategory={saveCategory}
-            />
-          ) : null}
-          {route === "/admin/orders" ? (
-            <AdminOrdersPage
-              orders={adminData.orders}
-              stockouts={adminData.stockouts}
-            />
-          ) : null}
-          {route === "/admin/users" ? (
-            <AdminUsersPage
-              users={adminData.adminUsers}
-              selectedUser={adminData.selectedUser}
-              suspicious={adminData.suspicious}
-              onOpenUser={openUserDetail}
-            />
-          ) : null}
-          {route === "/admin/reports" ? (
-            <AdminReportsPage
-              dashboard={adminData.dashboard}
-              categoryPerformance={adminData.categoryPerformance}
-              geography={adminData.geography}
-              rfm={adminData.rfm}
-              cohorts={adminData.cohorts}
-              forecast={adminData.forecast}
-              funnel={adminData.funnel}
-              logs={adminData.logs}
-              inventoryAlerts={adminData.inventoryAlerts}
-            />
-          ) : null}
-        </main>
+        <div className="staff-shell page-enter">
+          <StaffSidebar route={route} navigate={navigate} />
+          <main className={route === "/dashboard" ? "dashboard-shell staff-main" : "shell admin-shell staff-main"}>
+            {route === "/dashboard" ? (
+              <DashboardPage
+                data={adminData}
+                loading={loading.dashboard}
+                range={range}
+                setRange={setRange}
+              />
+            ) : null}
+            {route === "/admin" ? (
+              <AdminOverviewPage summary={adminData.summary} loading={loading.admin} navigate={navigate} />
+            ) : null}
+            {route === "/admin/products" ? (
+              <AdminProductsPage
+                products={publicData.homepageProducts}
+                categories={publicData.categories}
+                productForm={productForm}
+                setProductForm={setProductForm}
+                editingProduct={editingProduct}
+                setEditingProduct={setEditingProduct}
+                onSaveProduct={saveProduct}
+                categoryForm={categoryForm}
+                setCategoryForm={setCategoryForm}
+                onSaveCategory={saveCategory}
+              />
+            ) : null}
+            {route === "/admin/orders" ? (
+              <AdminOrdersPage
+                orders={adminData.orders}
+                stockouts={adminData.stockouts}
+              />
+            ) : null}
+            {route === "/admin/users" ? (
+              <AdminUsersPage
+                users={adminData.adminUsers}
+                selectedUser={adminData.selectedUser}
+                suspicious={adminData.suspicious}
+                onOpenUser={openUserDetail}
+              />
+            ) : null}
+            {route === "/admin/reports" ? (
+              <AdminReportsPage
+                dashboard={adminData.dashboard}
+                categoryPerformance={adminData.categoryPerformance}
+                geography={adminData.geography}
+                rfm={adminData.rfm}
+                cohorts={adminData.cohorts}
+                forecast={adminData.forecast}
+                funnel={adminData.funnel}
+                logs={adminData.logs}
+                inventoryAlerts={adminData.inventoryAlerts}
+              />
+            ) : null}
+          </main>
+        </div>
       ) : null}
+
+      <Footer navigate={navigate} />
     </div>
   );
 }
@@ -763,7 +768,7 @@ function Header({ auth, route, navigate, onLogout, cartCount }) {
     <header className="topbar">
       <div>
         <p className="eyebrow">Smart Commerce Analytics Platform</p>
-        <h1>Course Demo Commerce System</h1>
+        <h1>Smart Commerce Analytics</h1>
       </div>
       <button className="nav-toggle" onClick={() => document.body.classList.toggle("show-mobile-nav")}>Menu</button>
       <nav className="nav-links">
@@ -791,6 +796,37 @@ function Header({ auth, route, navigate, onLogout, cartCount }) {
   );
 }
 
+function StaffSidebar({ route, navigate }) {
+  const items = [
+    { index: "01 /", label: "Overview", path: "/dashboard" },
+    { index: "02 /", label: "Admin Home", path: "/admin" },
+    { index: "03 /", label: "Products", path: "/admin/products" },
+    { index: "04 /", label: "Orders", path: "/admin/orders" },
+    { index: "05 /", label: "Users", path: "/admin/users" },
+    { index: "06 /", label: "Reports", path: "/admin/reports" },
+  ];
+  return (
+    <aside className="staff-sidebar">
+      <div className="staff-sidebar-head">
+        <p className="section-index">00 /</p>
+        <h2>Control</h2>
+      </div>
+      <nav className="staff-sidebar-nav">
+        {items.map((item) => (
+          <button
+            key={item.path}
+            className={route === item.path ? "staff-link active" : "staff-link"}
+            onClick={() => navigate(item.path)}
+          >
+            <span className="section-index">{item.index}</span>
+            <span>{item.label}</span>
+          </button>
+        ))}
+      </nav>
+    </aside>
+  );
+}
+
 function HeroSummary({ title, subtitle }) {
   return (
     <section className="hero-summary">
@@ -806,29 +842,60 @@ function HeroSummary({ title, subtitle }) {
 function LandingPage({ banners, categories, trending, onLogin, onRegister, loading, navigate }) {
   return (
     <main className="shell">
-      <section className="landing-grid">
-        <div className="hero-card">
-          <BannerCarousel banners={banners} compact={false} />
-          <div className="hero-copy">
-            <h2>Production-style commerce analytics, customer journey, and admin operations in one academic monorepo.</h2>
-            <p>
-              Login as customer, sales, or admin to inspect seeded traffic, orders, recommendations, and analytics
-              dashboards built on FastAPI, React, and ECharts.
-            </p>
-            <div className="quick-actions">
-              <button onClick={() => navigate("/search")}>Preview Search</button>
-              <button className="ghost-button" onClick={() => navigate("/")}>Open Showcase</button>
-            </div>
-          </div>
+      <section className="auth-split-section">
+        <div className="auth-visual">
+          <div className="glow-orb glow-one" />
+          <div className="glow-orb glow-two" />
+          <SectionIntro
+            index="01 /"
+            title="Smart Commerce Analytics"
+            subtitle="The future of retail intelligence starts here."
+            description="A premium dark-mode commerce intelligence workspace for customers, sales teams, and admins."
+            action={<button onClick={() => navigate("/search")}>Explore Dashboard -&gt;</button>}
+          />
         </div>
         <div className="auth-panels">
           <AuthCard type="login" onSubmit={onLogin} loading={loading.login} />
           <AuthCard type="register" onSubmit={onRegister} loading={loading.register} />
         </div>
       </section>
+      <SectionSplit
+        index="02 /"
+        title="Shop Smarter"
+        description="Personalized recommendations, real-time inventory, and seamless checkout."
+        right={
+          <FeatureCardStack
+            items={[
+              { title: "AI Recommendations", body: "Browse-to-buy paths tuned by collaborative filtering." },
+              { title: "Live Inventory", body: "See stock levels update in real time." },
+              { title: "Secure Checkout", body: "Encrypted payments with instant confirmation." },
+            ]}
+          />
+        }
+      />
+      <SectionSplit
+        index="03 /"
+        title="Command Center"
+        description="War-room analytics, RFM segmentation, and predictive forecasting."
+        right={
+          <FeatureCardStack
+            items={[
+              { title: "War Room Dashboard", body: "Full-screen ECharts visualization with real-time KPIs." },
+              { title: "RFM Segmentation", body: "Auto-classify customers into Champions, Loyal, At Risk, Lost." },
+              { title: "Sales Forecasting", body: "7-day and 30-day trend predictions with anomaly alerts." },
+            ]}
+          />
+        }
+      />
+      <section className="quote-section">
+        <div className="quote-avatar" />
+        <blockquote>"This platform redefined how we understand our customers."</blockquote>
+        <p>Sales Manager</p>
+      </section>
+      <RecommendationStrip title="Trending Now" items={trending} onOpen={(id) => navigate(`/product/${id}`)} />
       <section className="panel">
         <div className="section-title">
-          <h3>Quick Categories</h3>
+          <h3>Category Quick Links</h3>
           <span>{categories.length} curated groups</span>
         </div>
         <div className="category-grid">
@@ -840,11 +907,6 @@ function LandingPage({ banners, categories, trending, onLogin, onRegister, loadi
           ))}
         </div>
       </section>
-      <RecommendationStrip
-        title="Trending Now"
-        items={trending}
-        onOpen={(id) => navigate(`/product/${id}`)}
-      />
     </main>
   );
 }
@@ -898,6 +960,48 @@ function AuthCard({ type, onSubmit, loading }) {
   );
 }
 
+function SectionIntro({ index, title, subtitle, description, action }) {
+  return (
+    <div className="section-copy">
+      <p className="section-index">{index}</p>
+      <h2>{title}</h2>
+      {subtitle ? <h3>{subtitle}</h3> : null}
+      <p>{description}</p>
+      {action ? <div className="quick-actions">{action}</div> : null}
+    </div>
+  );
+}
+
+function SectionSplit({ index, title, subtitle, description, action, right, hero = false }) {
+  return (
+    <section className={hero ? "section-split hero-split" : "section-split"}>
+      <div className="section-pane section-pane-left">
+        <SectionIntro index={index} title={title} subtitle={subtitle} description={description} action={action} />
+      </div>
+      <div className="section-pane section-pane-right">
+        {right}
+      </div>
+    </section>
+  );
+}
+
+function FeatureCardStack({ items }) {
+  return (
+    <div className="feature-stack">
+      {items.map((item) => (
+        <article className="feature-card" key={item.title}>
+          <span className="feature-dot" />
+          <div>
+            <h4>{item.title}</h4>
+            <p>{item.body}</p>
+            <button className="link-button">Read More -&gt;</button>
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+}
+
 function CanvasCaptcha({ equation }) {
   const ref = useRef(null);
   useEffect(() => {
@@ -946,29 +1050,70 @@ function HomePage({ banners, categories, products, trending, personalized, onOpe
   const limitedOffers = products.filter((item) => (item.tags_json || []).includes("limited-stock")).slice(0, 8);
   return (
     <>
-      <section className="hero-grid">
-        <BannerCarousel banners={banners} compact={false} />
-        <div className="panel side-hero">
-          <div className="section-title">
-            <h3>Category Quick Links</h3>
-            <button className="ghost-button" onClick={onSearch}>Open Search</button>
+      <SectionSplit
+        hero
+        index="01 /"
+        title="Smart Commerce Analytics"
+        subtitle="The future of retail intelligence starts here."
+        description="Personalized retail discovery, live inventory insight, and a premium dark-mode storefront built on real analytics."
+        action={<button onClick={onSearch}>Explore Dashboard -&gt;</button>}
+        right={<BannerCarousel banners={banners} compact={false} />}
+      />
+      <SectionSplit
+        index="02 /"
+        title="Shop Smarter"
+        description="Personalized recommendations, real-time inventory, and seamless checkout."
+        right={
+          <div className="stacked-mix">
+            <FeatureCardStack
+              items={[
+                { title: "AI Recommendations", body: "Browse-to-buy paths tuned by collaborative filtering." },
+                { title: "Live Inventory", body: "See stock levels update in real time." },
+                { title: "Secure Checkout", body: "Encrypted payments with instant confirmation." },
+              ]}
+            />
+            {personalized.length ? <RecommendationStrip title="For You" items={personalized} onOpen={onOpenProduct} onAdd={onAddToCart} compact /> : null}
           </div>
-          <div className="category-grid">
-            {categories.map((category) => (
-              <button key={category.id} className="category-tile" onClick={onSearch}>
-                <strong>{category.name}</strong>
-                <span>{category.description}</span>
-              </button>
-            ))}
+        }
+      />
+      <SectionSplit
+        index="03 /"
+        title="Command Center"
+        description="War-room analytics, RFM segmentation, and predictive forecasting."
+        right={
+          <div className="stacked-mix">
+            <FeatureCardStack
+              items={[
+                { title: "War Room Dashboard", body: "Full-screen ECharts visualization with real-time KPIs." },
+                { title: "RFM Segmentation", body: "Auto-classify customers into Champions, Loyal, At Risk, Lost." },
+                { title: "Sales Forecasting", body: "7-day and 30-day trend predictions with anomaly alerts." },
+              ]}
+            />
+            <RecommendationStrip title="Trending Now" items={trending} onOpen={onOpenProduct} onAdd={onAddToCart} compact />
           </div>
-        </div>
+        }
+      />
+      <section className="quote-section">
+        <div className="quote-avatar" />
+        <blockquote>"This platform redefined how we understand our customers."</blockquote>
+        <p>Sales Manager</p>
       </section>
-      <RecommendationStrip title="Trending Now" items={trending} onOpen={onOpenProduct} onAdd={onAddToCart} />
-      {personalized.length ? (
-        <RecommendationStrip title="For You" items={personalized} onOpen={onOpenProduct} onAdd={onAddToCart} />
-      ) : null}
       <ProductSection title="New Arrivals" items={newArrivals} onOpen={onOpenProduct} onAdd={onAddToCart} />
       <ProductSection title="Limited Offers" items={limitedOffers} onOpen={onOpenProduct} onAdd={onAddToCart} />
+      <section className="panel">
+        <div className="section-title">
+          <h3>Category Quick Links</h3>
+          <button className="ghost-button" onClick={onSearch}>Read More -&gt;</button>
+        </div>
+        <div className="category-grid">
+          {categories.map((category) => (
+            <button key={category.id} className="category-tile" onClick={onSearch}>
+              <strong>{category.name}</strong>
+              <span>{category.description}</span>
+            </button>
+          ))}
+        </div>
+      </section>
     </>
   );
 }
@@ -1090,7 +1235,7 @@ function ProductPage({ productState, setProductState, loading, onBack, onAddToCa
             <h2>{detail.name}</h2>
             <p>{detail.description}</p>
             <div className="stats-inline">
-              <strong>¥{Number(detail.price).toFixed(2)}</strong>
+              <strong>CNY {Number(detail.price).toFixed(2)}</strong>
               <span>{detail.brand || "Generic"}</span>
               <span>{detail.review_count} reviews</span>
               <span>{detail.rating_average} avg rating</span>
@@ -1121,9 +1266,21 @@ function ProductPage({ productState, setProductState, loading, onBack, onAddToCa
           </div>
         </div>
       </section>
+      <section className="product-tabs">
+        <button className="tab-link active">Description</button>
+        <button className="tab-link">Reviews</button>
+        <button className="tab-link">Recommendations</button>
+      </section>
+      <section className="panel product-tab-card">
+        <div className="section-title">
+          <h3>Description</h3>
+          <span>Overview</span>
+        </div>
+        <p>{detail.description}</p>
+      </section>
       <RecommendationStrip title="Frequently Bought Together" items={boughtTogether} onOpen={onOpenProduct} />
       <RecommendationStrip title="More Like This" items={similar} onOpen={onOpenProduct} />
-      <section className="panel">
+      <section className="panel product-tab-card">
         <div className="section-title">
           <h3>Recent Reviews</h3>
           <span>{reviews.length} total</span>
@@ -1161,7 +1318,7 @@ function CartPage({ cart, checkout, setCheckout, onSubmit, loading }) {
                 <strong>{item.name}</strong>
                 <p>{item.variant_label}</p>
               </div>
-              <span>{item.quantity} x ¥{item.unit_price.toFixed(2)}</span>
+              <span>{item.quantity} x CNY {item.unit_price.toFixed(2)}</span>
             </div>
           ))}
           {!cart.length ? <p className="muted-copy">Your cart is empty.</p> : null}
@@ -1170,7 +1327,7 @@ function CartPage({ cart, checkout, setCheckout, onSubmit, loading }) {
       <form className="panel" onSubmit={onSubmit}>
         <div className="section-title">
           <h3>Checkout</h3>
-          <strong>¥{total.toFixed(2)}</strong>
+          <strong>CNY {total.toFixed(2)}</strong>
         </div>
         <div className="stack-list">
           <textarea value={checkout.shipping_address} onChange={(event) => setCheckout((current) => ({ ...current, shipping_address: event.target.value }))} placeholder="Shipping address" />
@@ -1213,7 +1370,7 @@ function ProfilePage({ profileData, setProfileData, onSaveAddress, onDeleteAddre
           <p>Progress to next tier: {membershipProgress}%</p>
           <div className="stack-list mini">
             <span>Total Orders: {profile.summary.order_count}</span>
-            <span>Total Spend: ¥{profile.summary.total_spent.toFixed(2)}</span>
+            <span>Total Spend: CNY {profile.summary.total_spent.toFixed(2)}</span>
             <span>Preferred: {(profile.preferred_categories || []).join(", ")}</span>
           </div>
         </div>
@@ -1328,7 +1485,7 @@ function ProfilePage({ profileData, setProfileData, onSaveAddress, onDeleteAddre
                 <strong>Order #{order.id}</strong>
                 <p>{order.status}</p>
               </div>
-              <span>¥{order.total_amount.toFixed(2)}</span>
+              <span>CNY {order.total_amount.toFixed(2)}</span>
             </button>
           ))}
         </div>
@@ -1370,7 +1527,7 @@ function DashboardPage({ data, loading, range, setRange }) {
         </div>
       </section>
       <section className="dashboard-kpis">
-        <KpiCard label="Today GMV" value={`¥${data.warRoom.kpis.gmv_today.toFixed(0)}`} />
+        <KpiCard label="Today GMV" value={`CNY ${data.warRoom.kpis.gmv_today.toFixed(0)}`} />
         <KpiCard label="Active Users Now" value={data.warRoom.kpis.active_users_now} />
         <KpiCard label="Today Orders" value={data.warRoom.kpis.orders_today} />
         <KpiCard label="Low Stock Alerts" value={data.warRoom.inventory_alerts.length} />
@@ -1407,7 +1564,7 @@ function AdminOverviewPage({ summary, loading, navigate }) {
   return (
     <>
       <section className="summary-grid">
-        <KpiCard label="Revenue" value={`¥${summary.revenue.toFixed(0)}`} />
+        <KpiCard label="Revenue" value={`CNY ${summary.revenue.toFixed(0)}`} />
         <KpiCard label="Orders" value={summary.orders} />
         <KpiCard label="New Users" value={summary.new_users} />
         <KpiCard label="Low Stock Count" value={summary.low_stock_count} />
@@ -1485,7 +1642,7 @@ function AdminProductsPage({
                 <tr key={product.id}>
                   <td>{product.name}</td>
                   <td>{product.category_name}</td>
-                  <td>¥{Number(product.price).toFixed(2)}</td>
+                  <td>CNY {Number(product.price).toFixed(2)}</td>
                   <td>{product.stock_quantity}</td>
                   <td>{product.brand}</td>
                   <td><button className="ghost-button" onClick={() => beginEdit(product)}>Edit</button></td>
@@ -1577,7 +1734,7 @@ function AdminOrdersPage({ orders, stockouts }) {
                   <td>#{order.id}</td>
                   <td>{order.customer.username}</td>
                   <td>{order.status}</td>
-                  <td>¥{order.total_amount.toFixed(2)}</td>
+                  <td>CNY {order.total_amount.toFixed(2)}</td>
                   <td>{new Date(order.created_at).toLocaleString()}</td>
                 </tr>
               ))}
@@ -1643,7 +1800,7 @@ function AdminUsersPage({ users, selectedUser, suspicious, onOpenUser }) {
                   <td>{user.username}</td>
                   <td>{user.membership_tier}</td>
                   <td><span className="segment-badge">{user.rfm_segment}</span></td>
-                  <td>¥{Number(user.ltv_prediction).toFixed(0)}</td>
+                  <td>CNY {Number(user.ltv_prediction).toFixed(0)}</td>
                   <td>{user.order_count}</td>
                 </tr>
               ))}
@@ -1680,7 +1837,7 @@ function AdminUsersPage({ users, selectedUser, suspicious, onOpenUser }) {
                   <strong>Order #{order.id}</strong>
                   <p>{order.items.join(", ")}</p>
                 </div>
-                <span>¥{order.total_amount.toFixed(2)}</span>
+                <span>CNY {order.total_amount.toFixed(2)}</span>
               </div>
             ))}
             <div className="section-title compact"><h4>Activity Log</h4></div>
@@ -1737,8 +1894,8 @@ function AdminReportsPage({ dashboard, categoryPerformance, geography, rfm, coho
               {categoryPerformance.map((row) => (
                 <tr key={row.category_name}>
                   <td>{row.category_name}</td>
-                  <td>¥{row.revenue.toFixed(2)}</td>
-                  <td>¥{row.margin.toFixed(2)}</td>
+                  <td>CNY {row.revenue.toFixed(2)}</td>
+                  <td>CNY {row.margin.toFixed(2)}</td>
                   <td>{row.turnover_rate}</td>
                 </tr>
               ))}
@@ -1820,7 +1977,7 @@ function ProductCard({ item, onOpen, onAdd }) {
       <h4>{item.name || item.product_name}</h4>
       <p>{item.description || "Recommendation generated from the seeded dataset and browsing behavior."}</p>
       <div className="list-row compact">
-        <strong>¥{Number(item.price || item.score || 0).toFixed(2)}</strong>
+        <strong>CNY {Number(item.price || item.score || 0).toFixed(2)}</strong>
         {item.stock_quantity !== undefined ? <span>Stock {item.stock_quantity}</span> : null}
       </div>
       <div className="quick-actions">
@@ -1834,7 +1991,11 @@ function ProductCard({ item, onOpen, onAdd }) {
 function LoadingPanel({ label, dark }) {
   return (
     <section className={dark ? "panel panel-dark loading-panel" : "panel loading-panel"}>
-      <div className="spinner" />
+      <div className="skeleton-lines">
+        <div className="skeleton-line large" />
+        <div className="skeleton-line" />
+        <div className="skeleton-line short" />
+      </div>
       <p>{label}</p>
     </section>
   );
@@ -2023,7 +2184,7 @@ function TickerList({ orders }) {
             <p>{order.items[0]?.product_name || "Order item"}</p>
           </div>
           <div className="ticker-meta">
-            <strong>¥{order.total_amount.toFixed(2)}</strong>
+            <strong>CNY {order.total_amount.toFixed(2)}</strong>
             <small>{new Date(order.created_at).toLocaleTimeString()}</small>
           </div>
         </div>
@@ -2138,4 +2299,32 @@ function toggleFullscreen() {
   } else {
     void document.exitFullscreen();
   }
+}
+
+function Footer({ navigate }) {
+  return (
+    <footer className="footer">
+      <div className="footer-grid">
+        <div>
+          <p className="eyebrow">Smart Commerce Analytics</p>
+          <p>Premium dark-mode commerce intelligence for course submission and showcase screenshots.</p>
+        </div>
+        <div>
+          <h4>Explore</h4>
+          <button className="footer-link" onClick={() => navigate("/")}>Homepage</button>
+          <button className="footer-link" onClick={() => navigate("/search")}>Search</button>
+        </div>
+        <div>
+          <h4>Platform</h4>
+          <button className="footer-link" onClick={() => navigate("/dashboard")}>War Room</button>
+          <button className="footer-link" onClick={() => navigate("/admin/reports")}>Reports</button>
+        </div>
+        <div>
+          <h4>Connect</h4>
+          <span className="footer-link static">GitHub</span>
+          <span className="footer-link static">Course Demo</span>
+        </div>
+      </div>
+    </footer>
+  );
 }
