@@ -205,3 +205,52 @@ def order_history(
         .all()
     )
     return [serialize_order(order) for order in orders]
+
+
+@router.get("")
+def list_orders(
+    limit: int = 20,
+    sort: str = "desc",
+    status_filter: str = "",
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles(Role.SALES, Role.ADMIN)),
+) -> list[dict]:
+    query = (
+        db.query(Order)
+        .options(joinedload(Order.customer), joinedload(Order.items).joinedload(OrderItem.product), joinedload(Order.payments))
+    )
+    if status_filter:
+        query = query.filter(Order.status == status_filter)
+    query = query.order_by(Order.created_at.asc() if sort == "asc" else Order.created_at.desc())
+    orders = query.limit(limit).all()
+    return [
+        {
+            "id": order.id,
+            "customer": {
+                "id": order.customer.id,
+                "username": order.customer.username,
+                "email": order.customer.email,
+                "province": order.customer.province,
+                "city": order.customer.city,
+            },
+            "status": order.status.value,
+            "total_amount": order.total_amount,
+            "created_at": order.created_at.isoformat(),
+            "shipping_address": order.shipping_address,
+            "items": [
+                {
+                    "product_id": item.product_id,
+                    "product_name": item.product.name,
+                    "quantity": item.quantity,
+                    "variant_id": item.variant_id,
+                }
+                for item in order.items
+            ],
+            "payment": {
+                "method": order.payment_method.value,
+                "reference": order.payment_reference,
+                "coupon_code": order.coupon_code,
+            },
+        }
+        for order in orders
+    ]

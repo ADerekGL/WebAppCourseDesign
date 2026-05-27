@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
 from .database import create_all_and_migrate
-from .routers import admin, analytics, auth, orders, products, recommendations
+from .routers import admin, analytics, auth, orders, products, profile, recommendations, search
 
 settings = get_settings()
 app = FastAPI(title=settings.app_name, version="1.0.0")
@@ -26,6 +26,8 @@ app.include_router(orders.router)
 app.include_router(analytics.router)
 app.include_router(admin.router)
 app.include_router(recommendations.router)
+app.include_router(profile.router)
+app.include_router(search.router)
 
 
 @app.get("/health")

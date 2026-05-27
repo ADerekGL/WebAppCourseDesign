@@ -1,268 +1,453 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BarChart, LineChart, PieChart, RadarChart } from "echarts/charts";
+import { BarChart, HeatmapChart, LineChart, PieChart, RadarChart } from "echarts/charts";
 import {
   GridComponent,
   LegendComponent,
   RadarComponent,
-  TitleComponent,
-  TooltipComponent
+  TooltipComponent,
+  VisualMapComponent,
 } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import * as echarts from "echarts/core";
-import { apiFetch } from "./api";
-
-const defaultLogin = { username: "customer_test", password: "password" };
-const defaultRegister = { username: "", email: "", password: "" };
-const defaultCheckout = { shipping_address: "", payment_method: "card", coupon_code: "" };
-const chartThemes = ["#78a6ff", "#6fe1d2", "#ffca7a", "#ff8585", "#8a7dff", "#57c27a"];
+import { ApiError, api } from "./api";
 
 echarts.use([
   BarChart,
+  HeatmapChart,
   LineChart,
   PieChart,
   RadarChart,
+  CanvasRenderer,
   GridComponent,
   LegendComponent,
   RadarComponent,
-  TitleComponent,
   TooltipComponent,
-  CanvasRenderer
+  VisualMapComponent,
 ]);
 
+const RANGE_OPTIONS = [
+  { label: "Today", value: "today", forecastDays: 7 },
+  { label: "7D", value: "7d", forecastDays: 7 },
+  { label: "30D", value: "30d", forecastDays: 30 },
+];
+
+const DEFAULT_LOGIN = { username: "customer_test", password: "password" };
+const DEFAULT_REGISTER = { username: "", email: "", password: "" };
+const DEFAULT_PRODUCT_FORM = {
+  category_id: "",
+  name: "",
+  brand: "",
+  description: "",
+  price: "",
+  stock_quantity: "",
+  image_url: "",
+  tags: "trending,new-arrival",
+  variants: [{ sku: "", color: "", size: "", stock_quantity: "", image_url: "" }],
+};
+
 export default function App() {
-  const [route, setRoute] = useState(() => normalizeRoute(window.location.hash));
+  const [route, setRoute] = useState(() => window.location.pathname || "/");
   const [auth, setAuth] = useState(() => {
     const raw = localStorage.getItem("sca-auth");
     return raw ? JSON.parse(raw) : null;
   });
-  const [message, setMessage] = useState("");
-  const [loginForm, setLoginForm] = useState(defaultLogin);
-  const [registerForm, setRegisterForm] = useState(defaultRegister);
-  const [catalog, setCatalog] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [trending, setTrending] = useState([]);
-  const [heroRecommendations, setHeroRecommendations] = useState([]);
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [selectedProductReviews, setSelectedProductReviews] = useState([]);
-  const [recommendations, setRecommendations] = useState([]);
-  const [filters, setFilters] = useState({ category_id: "", search: "", min_price: "", max_price: "", sort_by: "updated_at" });
-  const [cart, setCart] = useState([]);
-  const [checkout, setCheckout] = useState(defaultCheckout);
-  const [orders, setOrders] = useState([]);
-  const [profile, setProfile] = useState(null);
-  const [dashboard, setDashboard] = useState(null);
-  const [warRoom, setWarRoom] = useState(null);
-  const [rfm, setRfm] = useState([]);
-  const [cohorts, setCohorts] = useState([]);
-  const [funnel, setFunnel] = useState([]);
-  const [logs, setLogs] = useState([]);
-  const [inventoryAlerts, setInventoryAlerts] = useState([]);
-  const [stockouts, setStockouts] = useState([]);
-  const [churn, setChurn] = useState([]);
-  const [metrics, setMetrics] = useState(null);
-  const [salesAccounts, setSalesAccounts] = useState([]);
-  const [newCategory, setNewCategory] = useState({ name: "", description: "", parent_id: "" });
-  const [newProduct, setNewProduct] = useState({
-    category_id: "",
-    name: "",
-    brand: "",
-    description: "",
-    price: "",
-    stock_quantity: "",
-    tags_json: "trending,new-arrival",
-    image_url: ""
+  const [toast, setToast] = useState(null);
+  const [range, setRange] = useState("today");
+  const [loading, setLoading] = useState({});
+  const [publicData, setPublicData] = useState({
+    banners: [],
+    categories: [],
+    homepageProducts: [],
+    trending: [],
+    personalized: [],
   });
+  const [searchState, setSearchState] = useState({
+    q: "",
+    category_id: "",
+    min_price: "",
+    max_price: "",
+    min_rating: "",
+    brand: "",
+    sort: "relevance",
+    page: 1,
+    results: [],
+    total: 0,
+    suggestions: [],
+  });
+  const [productState, setProductState] = useState({
+    detail: null,
+    reviews: [],
+    boughtTogether: [],
+    similar: [],
+    selectedVariantId: null,
+  });
+  const [cart, setCart] = useState([]);
+  const [checkout, setCheckout] = useState({ shipping_address: "", payment_method: "card", coupon_code: "" });
+  const [profileData, setProfileData] = useState({
+    profile: null,
+    browsing: [],
+    wishlist: [],
+    orders: [],
+    couponTab: "active",
+    addressDraft: {
+      contact_name: "",
+      phone: "",
+      province: "",
+      city: "",
+      district: "",
+      address_line: "",
+      postal_code: "",
+      is_default: false,
+    },
+    orderModal: null,
+  });
+  const [adminData, setAdminData] = useState({
+    summary: null,
+    dashboard: null,
+    warRoom: null,
+    categoryPerformance: [],
+    geography: [],
+    rfm: [],
+    cohorts: [],
+    forecast: [],
+    orders: [],
+    stockouts: [],
+    adminUsers: [],
+    selectedUser: null,
+    suspicious: [],
+    funnel: [],
+    logs: [],
+    inventoryAlerts: [],
+    salesAccounts: [],
+  });
+  const [productForm, setProductForm] = useState(DEFAULT_PRODUCT_FORM);
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [categoryForm, setCategoryForm] = useState({ name: "", description: "", parent_id: "" });
+  const [productPageProducts, setProductPageProducts] = useState([]);
 
-  const isCustomer = auth?.user.role === "customer";
-  const isStaff = auth?.user.role === "sales" || auth?.user.role === "admin";
-  const isAdmin = auth?.user.role === "admin";
+  const isCustomer = auth?.user?.role === "customer";
+  const isStaff = auth?.user?.role === "sales" || auth?.user?.role === "admin";
+  const isAdmin = auth?.user?.role === "admin";
+
+  const topCategories = useMemo(
+    () => publicData.categories.filter((item) => item.level === 1).slice(0, 8),
+    [publicData.categories]
+  );
 
   useEffect(() => {
-    const onHashChange = () => setRoute(normalizeRoute(window.location.hash));
-    window.addEventListener("hashchange", onHashChange);
-    return () => window.removeEventListener("hashchange", onHashChange);
+    const onPopState = () => setRoute(window.location.pathname || "/");
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
   }, []);
 
   useEffect(() => {
-    if (!window.location.hash) {
-      window.location.hash = "#/";
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadPublicData();
-  }, [filters]);
-
-  useEffect(() => {
-    if (!auth) {
+    if (auth) {
+      localStorage.setItem("sca-auth", JSON.stringify(auth));
+    } else {
       localStorage.removeItem("sca-auth");
-      setOrders([]);
-      setProfile(null);
-      setDashboard(null);
-      setWarRoom(null);
-      setSalesAccounts([]);
+    }
+  }, [auth]);
+
+  useEffect(() => {
+    void loadPublicShell();
+  }, [auth]);
+
+  useEffect(() => {
+    if (route === "/search") {
+      void loadSearchResults();
+    }
+    if (route === "/" && isCustomer) {
+      void loadPersonalized();
+    }
+    if (route === "/profile" && isCustomer) {
+      void loadProfileView();
+    }
+    if (route === "/dashboard" && isStaff) {
+      void loadDashboardData(true);
+    }
+    if (route.startsWith("/admin") && isStaff) {
+      void loadAdminView();
+    }
+    if (route.startsWith("/product/")) {
+      const productId = Number(route.split("/")[2]);
+      if (productId) void loadProduct(productId);
+    }
+  }, [route, auth, range]);
+
+  useEffect(() => {
+    if (route === "/search") {
+      void loadSearchResults();
+    }
+  }, [searchState.page]);
+
+  useEffect(() => {
+    if (route !== "/dashboard" || !isStaff) return undefined;
+    const timer = setInterval(() => {
+      void loadDashboardData(false);
+    }, 30000);
+    return () => clearInterval(timer);
+  }, [route, isStaff, range]);
+
+  useEffect(() => {
+    if (route !== "/search") return undefined;
+    const timer = setTimeout(() => {
+      void loadHotSearches(searchState.q);
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [route, searchState.q]);
+
+  function navigate(nextPath) {
+    if (nextPath === route) return;
+    window.history.pushState({}, "", nextPath);
+    setRoute(nextPath);
+  }
+
+  function showError(error) {
+    if (error instanceof ApiError && error.status === 429) {
+      setToast({ type: "warning", message: "Too many requests, please slow down." });
       return;
     }
-    localStorage.setItem("sca-auth", JSON.stringify(auth));
-    if (isCustomer) {
-      void Promise.all([loadOrders(auth.access_token), loadPersonalized(auth.access_token)]);
-    }
-    if (isStaff) {
-      void loadStaffData(auth.access_token, auth.user.role);
-    }
-  }, [auth, isCustomer, isStaff]);
+    setToast({ type: "error", message: error.message || "Request failed" });
+  }
 
-  async function loadPublicData() {
-    const query = new URLSearchParams();
-    if (filters.category_id) query.set("category_id", filters.category_id);
-    if (filters.search) query.set("search", filters.search);
-    if (filters.min_price) query.set("min_price", filters.min_price);
-    if (filters.max_price) query.set("max_price", filters.max_price);
-    if (filters.sort_by) query.set("sort_by", filters.sort_by);
+  async function withLoading(key, task) {
+    setLoading((current) => ({ ...current, [key]: true }));
+    try {
+      await task();
+    } catch (error) {
+      showError(error);
+    } finally {
+      setLoading((current) => ({ ...current, [key]: false }));
+    }
+  }
 
-    const [productData, categoryData, trendingData] = await Promise.all([
-      apiFetch(`/products?${query.toString()}`),
-      apiFetch("/products/categories"),
-      apiFetch("/api/recommendations/trending")
-    ]).catch((error) => {
-      setMessage(error.message);
-      return [[], [], []];
+  async function loadPublicShell() {
+    await withLoading("public", async () => {
+      const [banners, categories, homepageProducts, trending] = await Promise.all([
+        api.getBanners(),
+        api.getCategories(),
+        api.getProducts({ sort_by: "updated_at" }),
+        api.trending(),
+      ]);
+      const personalized = auth && isCustomer ? await api.personalized(auth.access_token) : [];
+      setPublicData({ banners, categories, homepageProducts, trending, personalized });
+      setProductPageProducts(homepageProducts);
     });
-    setCatalog(productData || []);
-    setCategories(categoryData || []);
-    setTrending(trendingData || []);
   }
 
-  async function loadOrders(token) {
-    try {
-      const data = await apiFetch("/orders/history", {}, token);
-      setOrders(data);
-    } catch (error) {
-      setMessage(error.message);
-    }
+  async function loadPersonalized() {
+    if (!auth || !isCustomer) return;
+    await withLoading("personalized", async () => {
+      const personalized = await api.personalized(auth.access_token);
+      setPublicData((current) => ({ ...current, personalized }));
+    });
   }
 
-  async function loadPersonalized(token) {
-    try {
-      const [personalized, history] = await Promise.all([
-        apiFetch("/api/recommendations/personalized", {}, token),
-        apiFetch("/orders/history", {}, token)
-      ]);
-      setHeroRecommendations(personalized);
-      setRecommendations(personalized);
-      const latestOrder = history[0];
-      if (latestOrder) {
-        const profileData = {
-          membership_tier: auth?.user?.membership_tier || "bronze",
-          order_count: history.length,
-          total_spent: history.reduce((sum, order) => sum + order.total_amount, 0),
-          latest_status: latestOrder.status
-        };
-        setProfile(profileData);
-      }
-    } catch (error) {
-      setMessage(error.message);
-    }
+  async function loadSearchResults() {
+    await withLoading("search", async () => {
+      const response = await api.searchProducts({
+        q: searchState.q,
+        category_id: searchState.category_id,
+        min_price: searchState.min_price,
+        max_price: searchState.max_price,
+        min_rating: searchState.min_rating,
+        brand: searchState.brand,
+        sort: searchState.sort,
+        page: searchState.page,
+        page_size: 12,
+      });
+      setSearchState((current) => ({
+        ...current,
+        results: response.items,
+        total: response.total,
+      }));
+    });
   }
 
-  async function loadStaffData(token, role) {
-    try {
-      const requests = [
-        apiFetch("/analytics/dashboard", {}, token),
-        apiFetch("/analytics/dashboard/war-room", {}, token),
-        apiFetch("/analytics/rfm", {}, token),
-        apiFetch("/analytics/cohorts", {}, token),
-        apiFetch("/analytics/funnel", {}, token),
-        apiFetch("/analytics/logs", {}, token),
-        apiFetch("/analytics/inventory-alerts", {}, token),
-        apiFetch("/analytics/stockout-predictions", {}, token),
-        apiFetch("/analytics/churn-predictions", {}, token),
-        apiFetch("/analytics/recommendation-metrics", {}, token)
+  async function loadHotSearches(query) {
+    await withLoading("hot-searches", async () => {
+      const suggestions = await api.getHotSearches(query);
+      setSearchState((current) => ({ ...current, suggestions }));
+    });
+  }
+
+  async function loadProduct(productId) {
+    await withLoading("product", async () => {
+      const tasks = [
+        api.getProduct(productId),
+        api.getReviews(productId),
+        api.boughtTogether(productId),
+        api.similar(productId),
       ];
-      if (role === "admin") {
-        requests.push(apiFetch("/admin/sales-accounts", {}, token));
+      if (auth && isCustomer) {
+        tasks.push(api.browseProduct(productId, 52, auth.access_token));
       }
-      const [
-        dashboardData,
-        warRoomData,
-        rfmData,
-        cohortData,
-        funnelData,
-        logData,
-        inventoryData,
-        stockoutData,
-        churnData,
-        metricsData,
-        salesData = []
-      ] = await Promise.all(requests);
-      setDashboard(dashboardData);
-      setWarRoom(warRoomData);
-      setRfm(rfmData);
-      setCohorts(cohortData);
-      setFunnel(funnelData);
-      setLogs(logData);
-      setInventoryAlerts(inventoryData);
-      setStockouts(stockoutData);
-      setChurn(churnData);
-      setMetrics(metricsData);
-      setSalesAccounts(salesData);
-    } catch (error) {
-      setMessage(error.message);
-    }
+      const [detail, reviews, boughtTogether, similar] = await Promise.all(tasks);
+      setProductState({
+        detail,
+        reviews,
+        boughtTogether,
+        similar,
+        selectedVariantId: detail.variants?.find((variant) => variant.is_default)?.id || detail.variants?.[0]?.id || null,
+      });
+    });
   }
 
-  async function openProduct(productId) {
-    try {
-      const [product, productRecommendations, reviewData] = await Promise.all([
-        apiFetch(`/products/${productId}`),
-        apiFetch(`/api/recommendations/frequently-bought-together/${productId}`),
-        apiFetch(`/products/${productId}/reviews`)
+  async function loadProfileView() {
+    if (!auth || !isCustomer) return;
+    await withLoading("profile", async () => {
+      const [profile, browsing, wishlist, orders] = await Promise.all([
+        api.profile(auth.access_token),
+        api.browsingHistory(auth.access_token),
+        api.wishlist(auth.access_token),
+        api.orderHistory(auth.access_token),
       ]);
-      setSelectedProduct(product);
-      setSelectedProductReviews(reviewData);
-      setRecommendations(productRecommendations);
-      window.location.hash = `#/product/${productId}`;
+      setProfileData((current) => ({
+        ...current,
+        profile,
+        browsing,
+        wishlist,
+        orders,
+        addressDraft: profile.addresses?.[0]
+          ? {
+              contact_name: profile.addresses[0].contact_name,
+              phone: profile.addresses[0].phone,
+              province: profile.addresses[0].province,
+              city: profile.addresses[0].city,
+              district: profile.addresses[0].district,
+              address_line: profile.addresses[0].address_line,
+              postal_code: profile.addresses[0].postal_code,
+              is_default: profile.addresses[0].is_default,
+            }
+          : current.addressDraft,
+      }));
+    });
+  }
+
+  async function loadDashboardData(showSpinner) {
+    if (!auth || !isStaff) return;
+    if (showSpinner) {
+      await withLoading("dashboard", async () => {
+        await refreshDashboardPayload();
+      });
+      return;
+    }
+    try {
+      await refreshDashboardPayload();
     } catch (error) {
-      setMessage(error.message);
+      showError(error);
     }
   }
 
-  async function handleLogin(event) {
-    event.preventDefault();
-    try {
-      const token = await apiFetch("/auth/login", { method: "POST", body: JSON.stringify(loginForm) });
+  async function refreshDashboardPayload() {
+    const forecastRange = RANGE_OPTIONS.find((item) => item.value === range)?.forecastDays || 7;
+    const [
+      dashboard,
+      warRoom,
+      categoryPerformance,
+      geography,
+      rfm,
+      cohorts,
+      forecast,
+      orders,
+      stockouts,
+      inventoryAlerts,
+    ] = await Promise.all([
+      api.dashboard(auth.access_token),
+      api.warRoom(auth.access_token),
+      api.categoryPerformance(auth.access_token),
+      api.geography(auth.access_token),
+      api.rfm(auth.access_token),
+      api.cohorts(auth.access_token),
+      api.forecast(auth.access_token, forecastRange),
+      api.adminOrders({ limit: 20, sort: "desc" }, auth.access_token),
+      api.stockouts(auth.access_token),
+      api.inventoryAlerts(auth.access_token),
+    ]);
+    setAdminData((current) => ({
+      ...current,
+      dashboard,
+      warRoom,
+      categoryPerformance,
+      geography,
+      rfm,
+      cohorts,
+      forecast,
+      orders,
+      stockouts,
+      inventoryAlerts,
+    }));
+  }
+
+  async function loadAdminView() {
+    if (!auth || !isStaff) return;
+    await withLoading("admin", async () => {
+      const [
+        summary,
+        orders,
+        adminUsers,
+        suspicious,
+        funnel,
+        logs,
+        stockouts,
+        inventoryAlerts,
+        salesAccounts,
+      ] = await Promise.all([
+        api.adminSummary(auth.access_token),
+        api.adminOrders({ limit: 50, sort: "desc" }, auth.access_token),
+        api.adminUsers(auth.access_token),
+        api.suspicious(auth.access_token),
+        api.funnel(auth.access_token),
+        api.logs(auth.access_token),
+        api.stockouts(auth.access_token),
+        api.inventoryAlerts(auth.access_token),
+        isAdmin ? api.salesAccounts(auth.access_token) : Promise.resolve([]),
+      ]);
+      setAdminData((current) => ({
+        ...current,
+        summary,
+        orders,
+        adminUsers,
+        suspicious,
+        funnel,
+        logs,
+        stockouts,
+        inventoryAlerts,
+        salesAccounts,
+      }));
+    });
+  }
+
+  async function handleLogin(payload) {
+    await withLoading("login", async () => {
+      const token = await api.login(payload);
       setAuth(token);
-      setMessage(`Logged in as ${token.user.role}`);
-      window.location.hash = token.user.role === "customer" ? "#/" : "#/dashboard";
-    } catch (error) {
-      setMessage(error.message);
-    }
+      setToast({ type: "success", message: `Logged in as ${token.user.role}.` });
+      navigate(token.user.role === "customer" ? "/" : "/dashboard");
+    });
   }
 
-  async function handleRegister(event) {
-    event.preventDefault();
-    try {
-      await apiFetch("/auth/register", { method: "POST", body: JSON.stringify(registerForm) });
-      setRegisterForm(defaultRegister);
-      setMessage("Registration complete. Use the same credentials to log in.");
-    } catch (error) {
-      setMessage(error.message);
-    }
+  async function handleRegister(payload) {
+    await withLoading("register", async () => {
+      await api.register(payload);
+      setToast({ type: "success", message: "Registration complete. You can now log in." });
+    });
   }
 
-  function logout() {
+  function handleLogout() {
     setAuth(null);
-    setRoute("/");
-    window.location.hash = "#/";
-    setMessage("Logged out");
+    navigate("/");
+    setToast({ type: "success", message: "Logged out." });
   }
 
-  function addToCart(product, variantId = null) {
+  function addToCart(product, variant = null) {
     setCart((current) => {
-      const existing = current.find((item) => item.product_id === product.id && item.variant_id === variantId);
+      const existing = current.find(
+        (item) => item.product_id === product.id && String(item.variant_id || "") === String(variant?.id || "")
+      );
       if (existing) {
         return current.map((item) =>
-          item.product_id === product.id && item.variant_id === variantId
+          item.product_id === product.id && String(item.variant_id || "") === String(variant?.id || "")
             ? { ...item, quantity: item.quantity + 1 }
             : item
         );
@@ -271,486 +456,687 @@ export default function App() {
         ...current,
         {
           product_id: product.id,
-          variant_id: variantId,
-          product_name: product.name,
+          variant_id: variant?.id || null,
+          name: product.name,
+          variant_label: variant ? `${variant.color} / ${variant.size}` : "Default",
           quantity: 1,
-          unit_price: product.price
-        }
+          unit_price: product.price,
+        },
       ];
     });
+    setToast({ type: "success", message: `${product.name} added to cart.` });
   }
 
   async function submitCheckout(event) {
     event.preventDefault();
-    if (!auth) return;
-    try {
-      await apiFetch(
-        "/orders/checkout",
+    if (!auth || !isCustomer) return;
+    await withLoading("checkout", async () => {
+      await api.checkout(
         {
-          method: "POST",
-          body: JSON.stringify({
-            ...checkout,
-            items: cart.map(({ product_id, quantity, variant_id }) => ({ product_id, quantity, variant_id }))
-          })
+          shipping_address: checkout.shipping_address,
+          payment_method: checkout.payment_method,
+          coupon_code: checkout.coupon_code,
+          items: cart.map((item) => ({
+            product_id: item.product_id,
+            quantity: item.quantity,
+            variant_id: item.variant_id,
+          })),
         },
         auth.access_token
       );
       setCart([]);
-      setCheckout(defaultCheckout);
-      setMessage("Checkout completed.");
-      await Promise.all([loadOrders(auth.access_token), loadPublicData(), loadPersonalized(auth.access_token)]);
-      window.location.hash = "#/account";
-    } catch (error) {
-      setMessage(error.message);
-    }
+      setCheckout({ shipping_address: "", payment_method: "card", coupon_code: "" });
+      setToast({ type: "success", message: "Checkout completed successfully." });
+      await loadProfileView();
+    });
   }
 
-  async function createCategory(event) {
+  async function saveAddress(event) {
     event.preventDefault();
-    try {
-      await apiFetch(
-        "/products/categories",
+    if (!auth || !isCustomer) return;
+    await withLoading("save-address", async () => {
+      await api.createAddress(profileData.addressDraft, auth.access_token);
+      setToast({ type: "success", message: "Address saved." });
+      await loadProfileView();
+    });
+  }
+
+  async function removeAddress(id) {
+    await withLoading("delete-address", async () => {
+      await api.deleteAddress(id, auth.access_token);
+      setToast({ type: "success", message: "Address deleted." });
+      await loadProfileView();
+    });
+  }
+
+  async function saveProduct(event) {
+    event.preventDefault();
+    if (!auth || !isStaff) return;
+    const payload = {
+      category_id: Number(productForm.category_id),
+      name: productForm.name,
+      brand: productForm.brand,
+      description: productForm.description,
+      price: Number(productForm.price),
+      stock_quantity: Number(productForm.stock_quantity),
+      image_url: productForm.image_url,
+      tags_json: productForm.tags.split(",").map((item) => item.trim()).filter(Boolean),
+      variants: productForm.variants.map((variant, index) => ({
+        sku: variant.sku || `${productForm.name.replace(/\s+/g, "-").toUpperCase()}-${index + 1}`,
+        color: variant.color || "Default",
+        size: variant.size || "Std",
+        stock_quantity: Number(variant.stock_quantity || productForm.stock_quantity),
+        image_url: variant.image_url || productForm.image_url,
+        is_default: index === 0,
+      })),
+    };
+    await withLoading("save-product", async () => {
+      if (editingProduct) {
+        await api.updateProduct(editingProduct.id, payload, auth.access_token);
+      } else {
+        await api.createProduct(payload, auth.access_token);
+      }
+      setEditingProduct(null);
+      setProductForm(DEFAULT_PRODUCT_FORM);
+      setToast({ type: "success", message: `Product ${editingProduct ? "updated" : "created"}.` });
+      const homepageProducts = await api.getProducts({ sort_by: "updated_at" });
+      setPublicData((current) => ({ ...current, homepageProducts }));
+      setProductPageProducts(homepageProducts);
+    });
+  }
+
+  async function saveCategory(event) {
+    event.preventDefault();
+    if (!auth || !isStaff) return;
+    await withLoading("save-category", async () => {
+      await api.createCategory(
         {
-          method: "POST",
-          body: JSON.stringify({
-            ...newCategory,
-            parent_id: newCategory.parent_id ? Number(newCategory.parent_id) : null
-          })
+          name: categoryForm.name,
+          description: categoryForm.description,
+          parent_id: categoryForm.parent_id ? Number(categoryForm.parent_id) : null,
         },
         auth.access_token
       );
-      setNewCategory({ name: "", description: "", parent_id: "" });
-      setMessage("Category created.");
-      await loadPublicData();
-    } catch (error) {
-      setMessage(error.message);
-    }
+      setCategoryForm({ name: "", description: "", parent_id: "" });
+      setToast({ type: "success", message: "Category created." });
+      const categories = await api.getCategories();
+      setPublicData((current) => ({ ...current, categories }));
+    });
   }
 
-  async function createProduct(event) {
-    event.preventDefault();
-    try {
-      await apiFetch(
-        "/products",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            category_id: Number(newProduct.category_id),
-            name: newProduct.name,
-            brand: newProduct.brand,
-            description: newProduct.description,
-            price: Number(newProduct.price),
-            stock_quantity: Number(newProduct.stock_quantity),
-            image_url: newProduct.image_url,
-            tags_json: newProduct.tags_json.split(",").map((item) => item.trim()).filter(Boolean),
-            variants: [
-              {
-                sku: `${newProduct.name.replace(/\s+/g, "-").toUpperCase()}-STD`,
-                color: "Standard",
-                size: "One Size",
-                stock_quantity: Number(newProduct.stock_quantity),
-                image_url: newProduct.image_url,
-                is_default: true
-              }
-            ]
-          })
-        },
-        auth.access_token
-      );
-      setNewProduct({
-        category_id: "",
-        name: "",
-        brand: "",
-        description: "",
-        price: "",
-        stock_quantity: "",
-        tags_json: "trending,new-arrival",
-        image_url: ""
-      });
-      setMessage("Product created.");
-      await loadPublicData();
-    } catch (error) {
-      setMessage(error.message);
+  async function openUserDetail(userId) {
+    if (!userId) {
+      setAdminData((current) => ({ ...current, selectedUser: null }));
+      return;
     }
+    await withLoading("user-detail", async () => {
+      const detail = await api.adminUserDetail(userId, auth.access_token);
+      setAdminData((current) => ({ ...current, selectedUser: detail }));
+    });
   }
 
-  const customerRoutes = useMemo(
-    () => [
-      { key: "/", label: "Home" },
-      { key: "/catalog", label: "Catalog" },
-      { key: "/checkout", label: `Cart (${cart.length})` },
-      { key: "/account", label: "User Center" }
-    ],
-    [cart.length]
-  );
-
-  const staffRoutes = [
-    { key: "/dashboard", label: "War Room" },
-    { key: "/reports", label: "Reports" },
-    { key: "/manage", label: "Management" }
-  ];
+  const routeMeta = getRouteMeta(route);
+  const pageTitle = isStaff
+    ? routeMeta.staffTitle
+    : routeMeta.customerTitle;
 
   return (
-    <div className={`shell ${route === "/dashboard" ? "shell-dashboard" : ""}`}>
-      <TopBar
+    <div className={route === "/dashboard" ? "app app-dark" : "app"}>
+      <Header
         auth={auth}
         route={route}
-        customerRoutes={customerRoutes}
-        staffRoutes={staffRoutes}
-        onNavigate={(next) => {
-          window.location.hash = `#${next}`;
-        }}
-        onLogout={logout}
+        navigate={navigate}
+        onLogout={handleLogout}
+        cartCount={cart.length}
       />
 
-      {message ? <div className="toast">{message}</div> : null}
+      {toast ? (
+        <div className={`toast toast-${toast.type}`}>
+          <span>{toast.message}</span>
+          <button className="ghost-button" onClick={() => setToast(null)}>Dismiss</button>
+        </div>
+      ) : null}
 
       {!auth ? (
-        <PublicLanding
-          loginForm={loginForm}
-          registerForm={registerForm}
-          onLoginChange={setLoginForm}
-          onRegisterChange={setRegisterForm}
+        <LandingPage
+          banners={publicData.banners}
+          categories={topCategories}
+          trending={publicData.trending}
           onLogin={handleLogin}
           onRegister={handleRegister}
-          trending={trending}
-          recommendations={heroRecommendations}
-          onProductOpen={openProduct}
+          loading={loading}
+          navigate={navigate}
         />
       ) : null}
 
-      {auth && isCustomer ? (
-        <div className="page-grid">
-          <aside className="sidebar">
-            <CategoryRail categories={categories} filters={filters} setFilters={setFilters} />
-            <CartPanel cart={cart} checkout={checkout} setCheckout={setCheckout} onSubmit={submitCheckout} />
-          </aside>
-          <main className="content">
-            {route === "/" ? (
-              <CustomerHome
-                catalog={catalog.slice(0, 8)}
-                recommendations={heroRecommendations}
-                trending={trending}
-                orders={orders}
-                onProductOpen={openProduct}
-                onAddToCart={addToCart}
-              />
-            ) : null}
-            {route === "/catalog" ? (
-              <CatalogView
-                catalog={catalog}
-                filters={filters}
-                setFilters={setFilters}
-                onProductOpen={openProduct}
-                onAddToCart={addToCart}
-              />
-            ) : null}
-            {route.startsWith("/product/") && selectedProduct ? (
-              <ProductDetailView
-                product={selectedProduct}
-                reviews={selectedProductReviews}
-                recommendations={recommendations}
-                onAddToCart={addToCart}
-                onBack={() => {
-                  window.location.hash = "#/catalog";
-                }}
-              />
-            ) : null}
-            {route === "/checkout" ? (
-              <CheckoutView cart={cart} checkout={checkout} setCheckout={setCheckout} onSubmit={submitCheckout} />
-            ) : null}
-            {route === "/account" ? (
-              <UserCenter profile={profile} orders={orders} recommendations={heroRecommendations} />
-            ) : null}
-          </main>
-        </div>
+      {((auth && !isStaff) || (!auth && route !== "/")) ? (
+        <main className="shell">
+          {auth ? (
+            <HeroSummary
+              title={pageTitle}
+              subtitle="Customer experience with recommendations, search, coupons, addresses, and order history."
+            />
+          ) : null}
+          {route === "/" ? (
+            <HomePage
+              banners={publicData.banners}
+              categories={topCategories}
+              products={publicData.homepageProducts}
+              trending={publicData.trending}
+              personalized={publicData.personalized}
+              onOpenProduct={(id) => navigate(`/product/${id}`)}
+              onSearch={() => navigate("/search")}
+              onAddToCart={addToCart}
+            />
+          ) : null}
+          {route === "/search" ? (
+            <SearchPage
+              state={searchState}
+              setState={setSearchState}
+              categories={publicData.categories}
+              loading={loading.search}
+              onOpenProduct={(id) => navigate(`/product/${id}`)}
+              onSearch={loadSearchResults}
+            />
+          ) : null}
+          {route.startsWith("/product/") ? (
+            <ProductPage
+              productState={productState}
+              setProductState={setProductState}
+              loading={loading.product}
+              onBack={() => navigate("/search")}
+              onAddToCart={addToCart}
+              onOpenProduct={(id) => navigate(`/product/${id}`)}
+            />
+          ) : null}
+          {route === "/cart" ? (
+            <CartPage
+              cart={cart}
+              checkout={checkout}
+              setCheckout={setCheckout}
+              onSubmit={submitCheckout}
+              loading={loading.checkout}
+            />
+          ) : null}
+          {route === "/profile" && auth ? (
+            <ProfilePage
+              profileData={profileData}
+              setProfileData={setProfileData}
+              onSaveAddress={saveAddress}
+              onDeleteAddress={removeAddress}
+            />
+          ) : null}
+        </main>
       ) : null}
 
       {auth && isStaff ? (
-        <div className={route === "/dashboard" ? "dashboard-layout" : "staff-layout"}>
-          {route === "/dashboard" ? <WarRoomView warRoom={warRoom} /> : null}
-          {route === "/reports" ? (
-            <ReportsView
-              dashboard={dashboard}
-              rfm={rfm}
-              cohorts={cohorts}
-              funnel={funnel}
-              inventoryAlerts={inventoryAlerts}
-              stockouts={stockouts}
-              churn={churn}
-              metrics={metrics}
+        <main className={route === "/dashboard" ? "dashboard-shell" : "shell admin-shell"}>
+          {route === "/dashboard" ? (
+            <DashboardPage
+              data={adminData}
+              loading={loading.dashboard}
+              range={range}
+              setRange={setRange}
             />
           ) : null}
-          {route === "/manage" ? (
-            <ManagementView
-              categories={categories}
-              newCategory={newCategory}
-              setNewCategory={setNewCategory}
-              newProduct={newProduct}
-              setNewProduct={setNewProduct}
-              createCategory={createCategory}
-              createProduct={createProduct}
-              logs={logs}
-              salesAccounts={salesAccounts}
-              isAdmin={isAdmin}
+          {route === "/admin" ? (
+            <AdminOverviewPage summary={adminData.summary} loading={loading.admin} navigate={navigate} />
+          ) : null}
+          {route === "/admin/products" ? (
+            <AdminProductsPage
+              products={publicData.homepageProducts}
+              categories={publicData.categories}
+              productForm={productForm}
+              setProductForm={setProductForm}
+              editingProduct={editingProduct}
+              setEditingProduct={setEditingProduct}
+              onSaveProduct={saveProduct}
+              categoryForm={categoryForm}
+              setCategoryForm={setCategoryForm}
+              onSaveCategory={saveCategory}
             />
           ) : null}
-        </div>
+          {route === "/admin/orders" ? (
+            <AdminOrdersPage
+              orders={adminData.orders}
+              stockouts={adminData.stockouts}
+            />
+          ) : null}
+          {route === "/admin/users" ? (
+            <AdminUsersPage
+              users={adminData.adminUsers}
+              selectedUser={adminData.selectedUser}
+              suspicious={adminData.suspicious}
+              onOpenUser={openUserDetail}
+            />
+          ) : null}
+          {route === "/admin/reports" ? (
+            <AdminReportsPage
+              dashboard={adminData.dashboard}
+              categoryPerformance={adminData.categoryPerformance}
+              geography={adminData.geography}
+              rfm={adminData.rfm}
+              cohorts={adminData.cohorts}
+              forecast={adminData.forecast}
+              funnel={adminData.funnel}
+              logs={adminData.logs}
+              inventoryAlerts={adminData.inventoryAlerts}
+            />
+          ) : null}
+        </main>
       ) : null}
     </div>
   );
 }
 
-function normalizeRoute(hash) {
-  if (!hash || hash === "#") return "/";
-  const route = hash.replace(/^#/, "");
-  return route || "/";
+function getRouteMeta(route) {
+  if (route === "/") return { customerTitle: "Smart storefront and personalized homepage", staffTitle: "Overview" };
+  if (route === "/search") return { customerTitle: "Search and discovery center", staffTitle: "Overview" };
+  if (route.startsWith("/product/")) return { customerTitle: "Product detail and cross-sell page", staffTitle: "Overview" };
+  if (route === "/cart") return { customerTitle: "Cart and checkout journey", staffTitle: "Overview" };
+  if (route === "/profile") return { customerTitle: "Membership, coupons, browsing, and order center", staffTitle: "Overview" };
+  if (route === "/dashboard") return { customerTitle: "", staffTitle: "War Room Analytics Dashboard" };
+  if (route === "/admin") return { customerTitle: "", staffTitle: "Admin Summary Dashboard" };
+  if (route === "/admin/products") return { customerTitle: "", staffTitle: "Product and inventory management" };
+  if (route === "/admin/orders") return { customerTitle: "", staffTitle: "Order operations and detail drawer" };
+  if (route === "/admin/users") return { customerTitle: "", staffTitle: "User insights and suspicious activity" };
+  return { customerTitle: "Commerce workspace", staffTitle: "Analytics reports and exports" };
 }
 
-function TopBar({ auth, route, customerRoutes, staffRoutes, onNavigate, onLogout }) {
-  const items = !auth ? [] : auth.user.role === "customer" ? customerRoutes : staffRoutes;
+function Header({ auth, route, navigate, onLogout, cartCount }) {
+  const customerLinks = [
+    { label: "Home", path: "/" },
+    { label: "Search", path: "/search" },
+    { label: `Cart ${cartCount ? `(${cartCount})` : ""}`, path: "/cart" },
+    { label: "Profile", path: "/profile" },
+  ];
+  const staffLinks = [
+    { label: "War Room", path: "/dashboard" },
+    { label: "Admin", path: "/admin" },
+    { label: "Products", path: "/admin/products" },
+    { label: "Orders", path: "/admin/orders" },
+    { label: "Users", path: "/admin/users" },
+    { label: "Reports", path: "/admin/reports" },
+  ];
+  const links = !auth ? [] : auth.user.role === "customer" ? customerLinks : staffLinks;
   return (
     <header className="topbar">
       <div>
         <p className="eyebrow">Smart Commerce Analytics Platform</p>
-        <h1>E-Commerce Analytics Command Center</h1>
+        <h1>Course Demo Commerce System</h1>
       </div>
-      <nav className="nav-tabs">
-        {items.map((item) => (
+      <button className="nav-toggle" onClick={() => document.body.classList.toggle("show-mobile-nav")}>Menu</button>
+      <nav className="nav-links">
+        {links.map((link) => (
           <button
-            key={item.key}
-            className={route === item.key || route.startsWith(`${item.key}/`) ? "tab active" : "tab"}
-            onClick={() => onNavigate(item.key)}
+            key={link.path}
+            className={route === link.path ? "nav-link active" : "nav-link"}
+            onClick={() => navigate(link.path)}
           >
-            {item.label}
+            {link.label}
           </button>
         ))}
       </nav>
-      <div className="identity">
+      <div className="topbar-right">
         {auth ? (
           <>
-            <span>{auth.user.username}</span>
-            <span className="identity-role">{auth.user.role}</span>
-            <button className="ghost" onClick={onLogout}>Logout</button>
+            <span className="role-pill">{auth.user.username} / {auth.user.role}</span>
+            <button className="ghost-button" onClick={onLogout}>Logout</button>
           </>
         ) : (
-          <span>Guest browsing enabled</span>
+          <span className="role-pill">Guest browsing enabled</span>
         )}
       </div>
     </header>
   );
 }
 
-function PublicLanding({ loginForm, registerForm, onLoginChange, onRegisterChange, onLogin, onRegister, trending, recommendations, onProductOpen }) {
+function HeroSummary({ title, subtitle }) {
   return (
-    <main className="landing">
-      <section className="hero-panel">
-        <div className="hero-copy">
-          <p className="badge">Capstone-ready commerce analytics</p>
-          <h2>Browse as a customer, monitor as sales, manage as admin.</h2>
-          <p>
-            The platform combines role-based e-commerce workflows, big-data event capture, analytics dashboards,
-            recommendation services, and realistic seed data in one browser-friendly academic stack.
-          </p>
-        </div>
-        <div className="auth-grid">
-          <form className="panel stack" onSubmit={onLogin}>
-            <h3>Login</h3>
-            <input value={loginForm.username} onChange={(e) => onLoginChange({ ...loginForm, username: e.target.value })} placeholder="Username" />
-            <input type="password" value={loginForm.password} onChange={(e) => onLoginChange({ ...loginForm, password: e.target.value })} placeholder="Password" />
-            <button type="submit">Enter Platform</button>
-          </form>
-          <form className="panel stack" onSubmit={onRegister}>
-            <h3>Customer Register</h3>
-            <input value={registerForm.username} onChange={(e) => onRegisterChange({ ...registerForm, username: e.target.value })} placeholder="Username" />
-            <input value={registerForm.email} onChange={(e) => onRegisterChange({ ...registerForm, email: e.target.value })} placeholder="Email" />
-            <input type="password" value={registerForm.password} onChange={(e) => onRegisterChange({ ...registerForm, password: e.target.value })} placeholder="Password" />
-            <button type="submit">Create Account</button>
-          </form>
-        </div>
-      </section>
+    <section className="hero-summary">
+      <div>
+        <p className="eyebrow">Frontend & Polish Sprint</p>
+        <h2>{title}</h2>
+        <p>{subtitle}</p>
+      </div>
+    </section>
+  );
+}
 
-      <section className="showcase-grid">
-        <RecommendationPanel title="Trending Right Now" items={trending} onOpen={onProductOpen} />
-        <RecommendationPanel title="Preview Recommendations" items={recommendations} onOpen={onProductOpen} />
+function LandingPage({ banners, categories, trending, onLogin, onRegister, loading, navigate }) {
+  return (
+    <main className="shell">
+      <section className="landing-grid">
+        <div className="hero-card">
+          <BannerCarousel banners={banners} compact={false} />
+          <div className="hero-copy">
+            <h2>Production-style commerce analytics, customer journey, and admin operations in one academic monorepo.</h2>
+            <p>
+              Login as customer, sales, or admin to inspect seeded traffic, orders, recommendations, and analytics
+              dashboards built on FastAPI, React, and ECharts.
+            </p>
+            <div className="quick-actions">
+              <button onClick={() => navigate("/search")}>Preview Search</button>
+              <button className="ghost-button" onClick={() => navigate("/")}>Open Showcase</button>
+            </div>
+          </div>
+        </div>
+        <div className="auth-panels">
+          <AuthCard type="login" onSubmit={onLogin} loading={loading.login} />
+          <AuthCard type="register" onSubmit={onRegister} loading={loading.register} />
+        </div>
       </section>
+      <section className="panel">
+        <div className="section-title">
+          <h3>Quick Categories</h3>
+          <span>{categories.length} curated groups</span>
+        </div>
+        <div className="category-grid">
+          {categories.map((category) => (
+            <button key={category.id} className="category-tile" onClick={() => navigate("/search")}>
+              <strong>{category.name}</strong>
+              <span>{category.description}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+      <RecommendationStrip
+        title="Trending Now"
+        items={trending}
+        onOpen={(id) => navigate(`/product/${id}`)}
+      />
     </main>
   );
 }
 
-function CategoryRail({ categories, filters, setFilters }) {
+function AuthCard({ type, onSubmit, loading }) {
+  const isLogin = type === "login";
+  const [form, setForm] = useState(isLogin ? DEFAULT_LOGIN : DEFAULT_REGISTER);
+  const [captchaSeed, setCaptchaSeed] = useState(() => generateCaptchaSeed());
+  const [answer, setAnswer] = useState("");
+
+  function submit(event) {
+    event.preventDefault();
+    if (Number(answer) !== captchaSeed.answer) return;
+    onSubmit(form);
+    setCaptchaSeed(generateCaptchaSeed());
+    setAnswer("");
+  }
+
   return (
-    <section className="panel stack">
-      <div className="section-head">
-        <h3>Category Explorer</h3>
-        <span>{categories.length} nodes</span>
+    <form className="panel auth-card" onSubmit={submit}>
+      <div className="section-title">
+        <h3>{isLogin ? "Login" : "Customer Register"}</h3>
+        <span>{isLogin ? "Use seeded accounts" : "Create a course demo account"}</span>
       </div>
-      <div className="category-list">
-        <button className={!filters.category_id ? "category-pill active" : "category-pill"} onClick={() => setFilters({ ...filters, category_id: "" })}>
-          All Categories
-        </button>
-        {categories.map((category) => (
-          <button
-            key={category.id}
-            className={String(filters.category_id) === String(category.id) ? "category-pill active" : "category-pill"}
-            onClick={() => setFilters({ ...filters, category_id: category.id })}
-          >
-            {category.name}
-          </button>
-        ))}
+      <input
+        value={form.username}
+        onChange={(event) => setForm((current) => ({ ...current, username: event.target.value }))}
+        placeholder="Username"
+      />
+      {!isLogin ? (
+        <input
+          value={form.email}
+          onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
+          placeholder="Email"
+        />
+      ) : null}
+      <input
+        type="password"
+        value={form.password}
+        onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
+        placeholder="Password"
+      />
+      <div className="captcha-box">
+        <CanvasCaptcha equation={captchaSeed.equation} />
+        <input value={answer} onChange={(event) => setAnswer(event.target.value)} placeholder="Solve CAPTCHA" />
       </div>
-    </section>
+      <button type="submit" disabled={loading || Number(answer) !== captchaSeed.answer}>
+        {loading ? "Working..." : isLogin ? "Enter Platform" : "Create Account"}
+      </button>
+    </form>
   );
 }
 
-function CustomerHome({ catalog, recommendations, trending, orders, onProductOpen, onAddToCart }) {
+function CanvasCaptcha({ equation }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    const context = canvas.getContext("2d");
+    context.fillStyle = "#eff6ff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.font = "20px Segoe UI";
+    context.fillStyle = "#1e3a8a";
+    context.fillText(equation, 18, 28);
+    for (let index = 0; index < 8; index += 1) {
+      context.strokeStyle = `rgba(37, 99, 235, ${0.15 + index * 0.03})`;
+      context.beginPath();
+      context.moveTo(Math.random() * canvas.width, Math.random() * canvas.height);
+      context.lineTo(Math.random() * canvas.width, Math.random() * canvas.height);
+      context.stroke();
+    }
+  }, [equation]);
+  return <canvas ref={ref} width="150" height="42" className="captcha-canvas" aria-label="captcha equation" />;
+}
+
+function BannerCarousel({ banners, compact }) {
+  const [index, setIndex] = useState(0);
+  useEffect(() => {
+    if (!banners.length) return undefined;
+    const timer = setInterval(() => setIndex((current) => (current + 1) % banners.length), 4000);
+    return () => clearInterval(timer);
+  }, [banners]);
+  if (!banners.length) return <div className={compact ? "banner banner-compact" : "banner"}>No active banners.</div>;
+  const active = banners[index];
   return (
-    <>
-      <section className="headline-card">
-        <div>
-          <p className="eyebrow">Customer Experience</p>
-          <h2>Personalized storefront with recommendations, trending demand, and order visibility.</h2>
-        </div>
-        <div className="kpi-strip">
-          <MetricCard label="Recent Orders" value={orders.length} />
-          <MetricCard label="Recommended" value={recommendations.length} />
-          <MetricCard label="Trending SKUs" value={trending.length} />
-        </div>
-      </section>
-      <RecommendationPanel title="Picked For You" items={recommendations} onOpen={onProductOpen} onAdd={onAddToCart} />
-      <RecommendationPanel title="Frequently Moving Products" items={trending} onOpen={onProductOpen} onAdd={onAddToCart} />
-      <CatalogCards title="New Arrivals Snapshot" items={catalog} onProductOpen={onProductOpen} onAddToCart={onAddToCart} />
-    </>
+    <div className={compact ? "banner banner-compact" : "banner"}>
+      <div className="banner-art" />
+      <div className="banner-copy">
+        <span className="eyebrow">Campaign</span>
+        <h3>{active.title}</h3>
+        <p>{active.subtitle}</p>
+      </div>
+    </div>
   );
 }
 
-function CatalogView({ catalog, filters, setFilters, onProductOpen, onAddToCart }) {
+function HomePage({ banners, categories, products, trending, personalized, onOpenProduct, onSearch, onAddToCart }) {
+  const newArrivals = products.slice(0, 8);
+  const limitedOffers = products.filter((item) => (item.tags_json || []).includes("limited-stock")).slice(0, 8);
   return (
     <>
-      <section className="panel">
-        <div className="toolbar">
-          <h2>Catalog Search</h2>
-          <div className="filter-row">
-            <input value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })} placeholder="Search name, description, brand" />
-            <input value={filters.min_price} onChange={(e) => setFilters({ ...filters, min_price: e.target.value })} placeholder="Min price" />
-            <input value={filters.max_price} onChange={(e) => setFilters({ ...filters, max_price: e.target.value })} placeholder="Max price" />
-            <select value={filters.sort_by} onChange={(e) => setFilters({ ...filters, sort_by: e.target.value })}>
-              <option value="updated_at">Newest</option>
-              <option value="price">Price</option>
-              <option value="stock_quantity">Stock</option>
-              <option value="name">Name</option>
-            </select>
+      <section className="hero-grid">
+        <BannerCarousel banners={banners} compact={false} />
+        <div className="panel side-hero">
+          <div className="section-title">
+            <h3>Category Quick Links</h3>
+            <button className="ghost-button" onClick={onSearch}>Open Search</button>
+          </div>
+          <div className="category-grid">
+            {categories.map((category) => (
+              <button key={category.id} className="category-tile" onClick={onSearch}>
+                <strong>{category.name}</strong>
+                <span>{category.description}</span>
+              </button>
+            ))}
           </div>
         </div>
       </section>
-      <CatalogCards title="Search Results" items={catalog} onProductOpen={onProductOpen} onAddToCart={onAddToCart} />
+      <RecommendationStrip title="Trending Now" items={trending} onOpen={onOpenProduct} onAdd={onAddToCart} />
+      {personalized.length ? (
+        <RecommendationStrip title="For You" items={personalized} onOpen={onOpenProduct} onAdd={onAddToCart} />
+      ) : null}
+      <ProductSection title="New Arrivals" items={newArrivals} onOpen={onOpenProduct} onAdd={onAddToCart} />
+      <ProductSection title="Limited Offers" items={limitedOffers} onOpen={onOpenProduct} onAdd={onAddToCart} />
     </>
   );
 }
 
-function CatalogCards({ title, items, onProductOpen, onAddToCart }) {
+function SearchPage({ state, setState, categories, loading, onOpenProduct, onSearch }) {
+  const totalPages = Math.max(1, Math.ceil((state.total || 0) / 12));
   return (
-    <section className="panel">
-      <div className="section-head">
-        <h2>{title}</h2>
-        <span>{items.length} items</span>
-      </div>
-      <div className="catalog-grid">
-        {items.map((product) => (
-          <article className="product-card" key={product.id}>
-            <div className="product-cover" />
-            <span className="tag">{product.category_name}</span>
-            <h3>{product.name}</h3>
-            <p>{product.description}</p>
-            <div className="meta-line">
-              <strong>¥{Number(product.price).toFixed(2)}</strong>
-              <span>Stock {product.stock_quantity}</span>
-            </div>
-            <div className="meta-line">
-              <span>{product.brand || "General"}</span>
-              <span>{product.review_count} reviews</span>
-            </div>
-            <div className="action-row">
-              <button className="ghost" onClick={() => onProductOpen(product.id)}>Details</button>
-              <button onClick={() => onAddToCart(product)}>Add to Cart</button>
-            </div>
-          </article>
-        ))}
-      </div>
-    </section>
+    <>
+      <section className="panel">
+        <div className="section-title">
+          <h3>Search & Filter</h3>
+          <span>{state.total} results</span>
+        </div>
+        <div className="search-layout">
+          <div className="search-primary">
+            <input
+              value={state.q}
+              onChange={(event) => setState((current) => ({ ...current, q: event.target.value, page: 1 }))}
+              placeholder="Search products, brands, descriptions"
+            />
+            {state.suggestions.length ? (
+              <div className="suggestion-list">
+                {state.suggestions.slice(0, 6).map((suggestion) => (
+                  <button
+                    key={suggestion.keyword}
+                    className="suggestion-item"
+                    onClick={() => setState((current) => ({ ...current, q: suggestion.keyword, page: 1 }))}
+                  >
+                    <span>{suggestion.keyword}</span>
+                    <small>{suggestion.search_count}</small>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+          <div className="search-filters">
+            <select value={state.category_id} onChange={(event) => setState((current) => ({ ...current, category_id: event.target.value, page: 1 }))}>
+              <option value="">All categories</option>
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>{category.name}</option>
+              ))}
+            </select>
+            <input value={state.brand} onChange={(event) => setState((current) => ({ ...current, brand: event.target.value, page: 1 }))} placeholder="Brand" />
+            <input value={state.min_price} onChange={(event) => setState((current) => ({ ...current, min_price: event.target.value, page: 1 }))} placeholder="Min price" />
+            <input value={state.max_price} onChange={(event) => setState((current) => ({ ...current, max_price: event.target.value, page: 1 }))} placeholder="Max price" />
+            <select value={state.min_rating} onChange={(event) => setState((current) => ({ ...current, min_rating: event.target.value, page: 1 }))}>
+              <option value="">Any rating</option>
+              <option value="4">4+ stars</option>
+              <option value="3">3+ stars</option>
+            </select>
+            <select value={state.sort} onChange={(event) => setState((current) => ({ ...current, sort: event.target.value, page: 1 }))}>
+              <option value="relevance">Relevance</option>
+              <option value="price_asc">Price Low-High</option>
+              <option value="price_desc">Price High-Low</option>
+              <option value="sales">Sales</option>
+              <option value="newest">Newest</option>
+            </select>
+            <button onClick={onSearch}>Search</button>
+          </div>
+        </div>
+      </section>
+      {loading ? <LoadingPanel label="Loading search results..." /> : null}
+      {!loading && !state.results.length ? (
+        <section className="panel empty-state">
+          <h3>No results found</h3>
+          <p>Try a broader keyword or explore the trending suggestions above.</p>
+        </section>
+      ) : null}
+      {state.results.length ? (
+        <ProductSection title="Search Results" items={state.results} onOpen={onOpenProduct} />
+      ) : null}
+      <section className="panel pagination-bar">
+        <button className="ghost-button" disabled={state.page <= 1} onClick={() => setState((current) => ({ ...current, page: current.page - 1 }))}>Previous</button>
+        <span>Page {state.page} / {totalPages}</span>
+        <button className="ghost-button" disabled={state.page >= totalPages} onClick={() => setState((current) => ({ ...current, page: current.page + 1 }))}>Next</button>
+      </section>
+    </>
   );
 }
 
-function ProductDetailView({ product, reviews, recommendations, onAddToCart, onBack }) {
-  const defaultVariant = product.variants?.find((variant) => variant.is_default) || product.variants?.[0];
-  const [selectedVariant, setSelectedVariant] = useState(defaultVariant?.id || null);
+function ProductPage({ productState, setProductState, loading, onBack, onAddToCart, onOpenProduct }) {
+  if (loading || !productState.detail) return <LoadingPanel label="Loading product detail..." />;
+  const { detail, reviews, boughtTogether, similar, selectedVariantId } = productState;
+  const selectedVariant = detail.variants?.find((variant) => variant.id === selectedVariantId) || detail.variants?.[0];
+  const stockLabel = selectedVariant?.stock_quantity <= 0
+    ? "Out of Stock"
+    : selectedVariant?.stock_quantity < 10
+      ? "Low Stock"
+      : "In Stock";
+  const starBuckets = [5, 4, 3, 2, 1].map((star) => ({
+    star,
+    count: reviews.filter((review) => review.rating === star).length,
+  }));
 
   return (
     <>
       <section className="panel">
-        <div className="toolbar">
-          <button className="ghost" onClick={onBack}>Back</button>
-          <span>{product.category_name}</span>
+        <div className="section-title">
+          <button className="ghost-button" onClick={onBack}>Back to Search</button>
+          <span className={`status-pill ${stockLabel === "In Stock" ? "success" : stockLabel === "Low Stock" ? "warning" : "danger"}`}>{stockLabel}</span>
         </div>
-        <div className="detail-layout">
-          <div className="detail-gallery">
-            <div className="detail-image" />
-            <div className="thumb-row">
-              {(product.variants || []).slice(0, 4).map((variant) => (
+        <div className="product-layout">
+          <div className="gallery-column">
+            <div className="gallery-main" />
+            <div className="thumbnail-row">
+              {(detail.variants || []).slice(0, 5).map((variant) => (
                 <button
                   key={variant.id}
-                  className={selectedVariant === variant.id ? "thumb active" : "thumb"}
-                  onClick={() => setSelectedVariant(variant.id)}
+                  className={selectedVariantId === variant.id ? "thumbnail active" : "thumbnail"}
+                  onClick={() => setProductState((current) => ({ ...current, selectedVariantId: variant.id }))}
                 >
                   {variant.color || "Default"}
                 </button>
               ))}
             </div>
           </div>
-          <div className="detail-copy">
-            <h2>{product.name}</h2>
-            <p>{product.description}</p>
-            <div className="metric-inline">
-              <span>Brand: {product.brand || "Generic"}</span>
-              <span>Rating: {product.rating_average || 0}</span>
-              <span>Reviews: {product.review_count}</span>
+          <div className="detail-column">
+            <span className="eyebrow">{detail.category_name}</span>
+            <h2>{detail.name}</h2>
+            <p>{detail.description}</p>
+            <div className="stats-inline">
+              <strong>¥{Number(detail.price).toFixed(2)}</strong>
+              <span>{detail.brand || "Generic"}</span>
+              <span>{detail.review_count} reviews</span>
+              <span>{detail.rating_average} avg rating</span>
             </div>
-            <div className="metric-inline">
-              <span>Stock: {product.stock_quantity}</span>
-              <span>SKU: {product.sku || "n/a"}</span>
-            </div>
-            <div className="variant-list">
-              {(product.variants || []).map((variant) => (
+            <div className="variant-group">
+              {(detail.variants || []).map((variant) => (
                 <button
                   key={variant.id}
-                  className={selectedVariant === variant.id ? "variant-pill active" : "variant-pill"}
-                  onClick={() => setSelectedVariant(variant.id)}
+                  className={selectedVariantId === variant.id ? "variant-chip active" : "variant-chip"}
+                  onClick={() => setProductState((current) => ({ ...current, selectedVariantId: variant.id }))}
                 >
                   {variant.color} / {variant.size}
                 </button>
               ))}
             </div>
-            <div className="action-row">
-              <button onClick={() => onAddToCart(product, selectedVariant)}>Add Variant to Cart</button>
+            <div className="review-bars">
+              {starBuckets.map((bucket) => (
+                <div className="review-row" key={bucket.star}>
+                  <span>{bucket.star} star</span>
+                  <div className="review-bar-track">
+                    <div className="review-bar-fill" style={{ width: `${reviews.length ? (bucket.count / reviews.length) * 100 : 0}%` }} />
+                  </div>
+                  <strong>{bucket.count}</strong>
+                </div>
+              ))}
             </div>
+            <button onClick={() => onAddToCart(detail, selectedVariant)}>Add to Cart</button>
           </div>
         </div>
       </section>
-      <RecommendationPanel title="Frequently Bought Together" items={recommendations} />
+      <RecommendationStrip title="Frequently Bought Together" items={boughtTogether} onOpen={onOpenProduct} />
+      <RecommendationStrip title="More Like This" items={similar} onOpen={onOpenProduct} />
       <section className="panel">
-        <div className="section-head">
-          <h2>Review Summary</h2>
-          <span>{reviews.length} records</span>
+        <div className="section-title">
+          <h3>Recent Reviews</h3>
+          <span>{reviews.length} total</span>
         </div>
-        <div className="review-list">
+        <div className="review-grid">
           {reviews.slice(0, 6).map((review) => (
             <article className="review-card" key={review.id}>
-              <div className="meta-line">
+              <div className="section-title compact">
                 <strong>{review.user_name}</strong>
-                <span>{review.rating}/5</span>
+                <span>{review.rating} / 5</span>
               </div>
-              <p>{review.title}</p>
-              <small>{review.content}</small>
+              <h4>{review.title}</h4>
+              <p>{review.content}</p>
             </article>
           ))}
         </div>
@@ -759,239 +1145,664 @@ function ProductDetailView({ product, reviews, recommendations, onAddToCart, onB
   );
 }
 
-function CartPanel({ cart, checkout, setCheckout, onSubmit }) {
-  const total = cart.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
+function CartPage({ cart, checkout, setCheckout, onSubmit, loading }) {
+  const total = cart.reduce((sum, item) => sum + item.unit_price * item.quantity, 0);
   return (
-    <section className="panel stack">
-      <div className="section-head">
-        <h3>Cart Snapshot</h3>
-        <span>{cart.length} lines</span>
+    <section className="checkout-grid">
+      <div className="panel">
+        <div className="section-title">
+          <h3>Shopping Cart</h3>
+          <span>{cart.length} items</span>
+        </div>
+        <div className="stack-list">
+          {cart.map((item) => (
+            <div className="list-row" key={`${item.product_id}-${item.variant_id || "base"}`}>
+              <div>
+                <strong>{item.name}</strong>
+                <p>{item.variant_label}</p>
+              </div>
+              <span>{item.quantity} x ¥{item.unit_price.toFixed(2)}</span>
+            </div>
+          ))}
+          {!cart.length ? <p className="muted-copy">Your cart is empty.</p> : null}
+        </div>
       </div>
-      <div className="stack">
-        {cart.length === 0 ? <p className="muted">Add products from the catalog to begin checkout.</p> : null}
-        {cart.map((item) => (
-          <div key={`${item.product_id}-${item.variant_id || "base"}`} className="line-item">
-            <span>{item.product_name}</span>
-            <span>{item.quantity} x ¥{item.unit_price.toFixed(2)}</span>
-          </div>
-        ))}
-      </div>
-      <div className="line-item total-line">
-        <strong>Total</strong>
-        <strong>¥{total.toFixed(2)}</strong>
-      </div>
-      <form className="stack" onSubmit={onSubmit}>
-        <textarea value={checkout.shipping_address} onChange={(e) => setCheckout({ ...checkout, shipping_address: e.target.value })} placeholder="Shipping address" />
-        <select value={checkout.payment_method} onChange={(e) => setCheckout({ ...checkout, payment_method: e.target.value })}>
-          <option value="card">Card</option>
-          <option value="alipay">Alipay</option>
-          <option value="wechat">WeChat</option>
-        </select>
-        <input value={checkout.coupon_code} onChange={(e) => setCheckout({ ...checkout, coupon_code: e.target.value })} placeholder="Coupon code" />
-        <button type="submit" disabled={cart.length === 0}>Checkout</button>
+      <form className="panel" onSubmit={onSubmit}>
+        <div className="section-title">
+          <h3>Checkout</h3>
+          <strong>¥{total.toFixed(2)}</strong>
+        </div>
+        <div className="stack-list">
+          <textarea value={checkout.shipping_address} onChange={(event) => setCheckout((current) => ({ ...current, shipping_address: event.target.value }))} placeholder="Shipping address" />
+          <select value={checkout.payment_method} onChange={(event) => setCheckout((current) => ({ ...current, payment_method: event.target.value }))}>
+            <option value="card">Card</option>
+            <option value="alipay">Alipay</option>
+            <option value="wechat">WeChat</option>
+          </select>
+          <input value={checkout.coupon_code} onChange={(event) => setCheckout((current) => ({ ...current, coupon_code: event.target.value }))} placeholder="Coupon code" />
+          <button type="submit" disabled={!cart.length || loading}>Complete Purchase</button>
+        </div>
       </form>
     </section>
   );
 }
 
-function CheckoutView({ cart, checkout, setCheckout, onSubmit }) {
+function ProfilePage({ profileData, setProfileData, onSaveAddress, onDeleteAddress }) {
+  const profile = profileData.profile;
+  if (!profile) return <LoadingPanel label="Loading profile..." />;
+  const coupons = profile.coupons || [];
+  const now = Date.now();
+  const filteredCoupons = coupons.filter((coupon) => {
+    const expired = coupon.expires_at && new Date(coupon.expires_at).getTime() < now;
+    if (profileData.couponTab === "active") return !coupon.is_used && !expired;
+    if (profileData.couponTab === "used") return coupon.is_used;
+    return expired;
+  });
+  const membershipProgress = getTierProgress(profile.membership_tier);
   return (
-    <section className="panel">
-      <div className="section-head">
-        <h2>Checkout Flow</h2>
-        <span>Cart → Shipping → Payment → Confirm</span>
-      </div>
-      <div className="checkout-grid">
-        <CartPanel cart={cart} checkout={checkout} setCheckout={setCheckout} onSubmit={onSubmit} />
-        <div className="panel stack nested-panel">
-          <h3>Order Summary</h3>
-          {cart.map((item) => (
-            <div className="line-item" key={`${item.product_id}-${item.variant_id || "base"}`}>
-              <span>{item.product_name}</span>
-              <span>{item.quantity}</span>
+    <>
+      <section className="profile-grid">
+        <div className="panel">
+          <div className="section-title">
+            <h3>Membership Tier</h3>
+            <span>{profile.membership_tier.toUpperCase()}</span>
+          </div>
+          <div className="membership-meter">
+            <div className="membership-fill" style={{ width: `${membershipProgress}%` }} />
+          </div>
+          <p>Progress to next tier: {membershipProgress}%</p>
+          <div className="stack-list mini">
+            <span>Total Orders: {profile.summary.order_count}</span>
+            <span>Total Spend: ¥{profile.summary.total_spent.toFixed(2)}</span>
+            <span>Preferred: {(profile.preferred_categories || []).join(", ")}</span>
+          </div>
+        </div>
+        <div className="panel">
+          <div className="section-title">
+            <h3>Coupons</h3>
+            <div className="tab-strip">
+              {["active", "used", "expired"].map((tab) => (
+                <button
+                  key={tab}
+                  className={profileData.couponTab === tab ? "nav-link active" : "nav-link"}
+                  onClick={() => setProfileData((current) => ({ ...current, couponTab: tab }))}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="stack-list">
+            {filteredCoupons.map((coupon) => (
+              <div key={coupon.id} className="coupon-card">
+                <strong>{coupon.code}</strong>
+                <span>{coupon.discount_type} / {coupon.discount_value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="section-title">
+          <h3>Browsing History</h3>
+          <span>{profileData.browsing.length} events</span>
+        </div>
+        <div className="stack-list">
+          {profileData.browsing.map((item) => (
+            <div key={item.id} className="list-row">
+              <div>
+                <strong>{item.content}</strong>
+                <p>{item.category_name}</p>
+              </div>
+              <span>{new Date(item.created_at).toLocaleString()}</span>
             </div>
           ))}
         </div>
-      </div>
-    </section>
-  );
-}
+      </section>
 
-function UserCenter({ profile, orders, recommendations }) {
-  return (
-    <>
-      <section className="headline-card">
-        <div>
-          <p className="eyebrow">User Center</p>
-          <h2>Membership, order timeline, and recommendation retention surface.</h2>
-        </div>
-        <div className="kpi-strip">
-          <MetricCard label="Tier" value={(profile?.membership_tier || "bronze").toUpperCase()} />
-          <MetricCard label="Orders" value={profile?.order_count || 0} />
-          <MetricCard label="Spend" value={`¥${Number(profile?.total_spent || 0).toFixed(0)}`} />
+      <section className="profile-grid">
+        <form className="panel" onSubmit={onSaveAddress}>
+          <div className="section-title">
+            <h3>Address Book</h3>
+            <span>{profile.addresses.length} saved</span>
+          </div>
+          <div className="stack-list">
+            {["contact_name", "phone", "province", "city", "district", "address_line", "postal_code"].map((field) => (
+              <input
+                key={field}
+                value={profileData.addressDraft[field] || ""}
+                onChange={(event) => setProfileData((current) => ({
+                  ...current,
+                  addressDraft: { ...current.addressDraft, [field]: event.target.value },
+                }))}
+                placeholder={field.replace(/_/g, " ")}
+              />
+            ))}
+            <label className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={profileData.addressDraft.is_default}
+                onChange={(event) => setProfileData((current) => ({
+                  ...current,
+                  addressDraft: { ...current.addressDraft, is_default: event.target.checked },
+                }))}
+              />
+              Default address
+            </label>
+            <button type="submit">Save Address</button>
+          </div>
+        </form>
+        <div className="panel">
+          <div className="section-title">
+            <h3>Saved Addresses</h3>
+            <span>{profile.addresses.length} entries</span>
+          </div>
+          <div className="stack-list">
+            {profile.addresses.map((address) => (
+              <div className="list-row" key={address.id}>
+                <div>
+                  <strong>{address.contact_name}</strong>
+                  <p>{address.province} {address.city} {address.address_line}</p>
+                </div>
+                <button className="ghost-button" onClick={() => onDeleteAddress(address.id)}>Delete</button>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
+
       <section className="panel">
-        <div className="section-head">
-          <h2>Order History</h2>
-          <span>{orders.length} orders</span>
+        <div className="section-title">
+          <h3>Order History</h3>
+          <span>{profileData.orders.length} orders</span>
         </div>
-        <div className="timeline-list">
-          {orders.slice(0, 12).map((order) => (
-            <article key={order.id} className="timeline-card">
-              <div className="meta-line">
+        <div className="stack-list">
+          {profileData.orders.map((order) => (
+            <button
+              className="list-row interactive-row"
+              key={order.id}
+              onClick={() => setProfileData((current) => ({ ...current, orderModal: order }))}
+            >
+              <div>
                 <strong>Order #{order.id}</strong>
-                <span>{order.status}</span>
+                <p>{order.status}</p>
               </div>
-              <div className="meta-line">
-                <span>¥{order.total_amount.toFixed(2)}</span>
-                <span>{new Date(order.created_at).toLocaleString()}</span>
-              </div>
-              <div className="timeline-mini">
-                {order.timeline?.map((step) => (
-                  <span key={`${order.id}-${step.status}`}>{step.status}</span>
-                ))}
-              </div>
-            </article>
+              <span>¥{order.total_amount.toFixed(2)}</span>
+            </button>
           ))}
         </div>
       </section>
-      <RecommendationPanel title="Keep Exploring" items={recommendations} />
+      {profileData.orderModal ? (
+        <Modal title={`Order #${profileData.orderModal.id}`} onClose={() => setProfileData((current) => ({ ...current, orderModal: null }))}>
+          <div className="stack-list">
+            {profileData.orderModal.timeline.map((step) => (
+              <div className="timeline-step" key={`${profileData.orderModal.id}-${step.status}-${step.created_at}`}>
+                <strong>{step.status}</strong>
+                <span>{new Date(step.created_at).toLocaleString()}</span>
+              </div>
+            ))}
+          </div>
+        </Modal>
+      ) : null}
     </>
   );
 }
 
-function ReportsView({ dashboard, rfm, cohorts, funnel, inventoryAlerts, stockouts, churn, metrics }) {
+function DashboardPage({ data, loading, range, setRange }) {
+  if (loading || !data.warRoom) return <LoadingPanel label="Loading war room dashboard..." dark />;
   return (
-    <div className="report-grid">
-      <section className="panel">
-        <h2>Executive Snapshot</h2>
-        <div className="kpi-strip">
-          <MetricCard label="Top Products" value={dashboard?.top_products?.length || 0} />
-          <MetricCard label="RFM Segments" value={rfm.length} />
-          <MetricCard label="Coverage" value={`${metrics?.coverage || 0}%`} />
+    <>
+      <section className="dashboard-toolbar">
+        <div>
+          <p className="eyebrow">War Room</p>
+          <h2>1920x1080 analytics large screen</h2>
         </div>
-        <div className="mini-grid">
-          <SimpleList title="Anomalies" items={dashboard?.anomaly_alerts || []} />
-          <SimpleList title="Funnel" items={(funnel || []).map((item) => `${item.step}: ${item.users}`)} />
-        </div>
-      </section>
-      <section className="panel">
-        <h2>RFM Distribution</h2>
-        <div className="stack">
-          {rfm.map((segment) => (
-            <div className="line-item" key={segment.segment}>
-              <span>{segment.segment}</span>
-              <span>{segment.users} users / ¥{segment.revenue.toFixed(0)}</span>
-            </div>
-          ))}
+        <div className="dashboard-controls">
+          <div className="tab-strip">
+            {RANGE_OPTIONS.map((option) => (
+              <button key={option.value} className={range === option.value ? "nav-link active" : "nav-link"} onClick={() => setRange(option.value)}>
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <button onClick={toggleFullscreen}>Fullscreen</button>
         </div>
       </section>
-      <section className="panel">
-        <h2>Cohort Retention</h2>
-        <div className="cohort-grid">
-          {cohorts.slice(0, 8).map((row) => (
-            <div className="cohort-row" key={row.cohort}>
-              <strong>{row.cohort}</strong>
-              <span>{Object.values(row.retention).slice(0, 4).join(" / ")}</span>
-            </div>
-          ))}
-        </div>
+      <section className="dashboard-kpis">
+        <KpiCard label="Today GMV" value={`¥${data.warRoom.kpis.gmv_today.toFixed(0)}`} />
+        <KpiCard label="Active Users Now" value={data.warRoom.kpis.active_users_now} />
+        <KpiCard label="Today Orders" value={data.warRoom.kpis.orders_today} />
+        <KpiCard label="Low Stock Alerts" value={data.warRoom.inventory_alerts.length} />
       </section>
-      <section className="panel">
-        <h2>Inventory and Risk</h2>
-        <div className="mini-grid">
-          <SimpleList title="Inventory Alerts" items={inventoryAlerts.slice(0, 6).map((item) => `${item.product_name}: ${item.stock_quantity}`)} />
-          <SimpleList title="Stockout Predictions" items={stockouts.slice(0, 6).map((item) => `${item.product_name}: ${item.days_left}d`)} />
-          <SimpleList title="Churn Predictions" items={churn.slice(0, 6).map((item) => `${item.username}: ${item.days_since_purchase}d`)} />
-        </div>
+      <section className="dashboard-grid">
+        <ChartPanel className="span-2" title="Sales Trend: Today vs Yesterday">
+          <SalesTrendChart data={data.warRoom.trend_today_vs_yesterday} />
+        </ChartPanel>
+        <ChartPanel title="RFM Radar">
+          <RfmRadarChart data={data.rfm} />
+        </ChartPanel>
+        <ChartPanel className="span-2" title="Category Share">
+          <CategoryShareChart data={data.categoryPerformance} />
+        </ChartPanel>
+        <ChartPanel title="Real-time Ticker">
+          <TickerList orders={data.orders} />
+        </ChartPanel>
+        <ChartPanel className="span-2" title="Province Sales Ranking">
+          <GeographyBarChart data={data.geography} />
+        </ChartPanel>
+        <ChartPanel title="Cohort Heatmap">
+          <CohortHeatmap data={data.cohorts} />
+        </ChartPanel>
+        <ChartPanel className="span-3" title="Forecast & Stockout Alerts">
+          <ForecastAndAlerts forecast={data.forecast} stockouts={data.stockouts} />
+        </ChartPanel>
       </section>
-    </div>
+    </>
   );
 }
 
-function ManagementView({ categories, newCategory, setNewCategory, newProduct, setNewProduct, createCategory, createProduct, logs, salesAccounts, isAdmin }) {
+function AdminOverviewPage({ summary, loading, navigate }) {
+  if (loading || !summary) return <LoadingPanel label="Loading admin summary..." />;
   return (
-    <div className="report-grid">
+    <>
+      <section className="summary-grid">
+        <KpiCard label="Revenue" value={`¥${summary.revenue.toFixed(0)}`} />
+        <KpiCard label="Orders" value={summary.orders} />
+        <KpiCard label="New Users" value={summary.new_users} />
+        <KpiCard label="Low Stock Count" value={summary.low_stock_count} />
+      </section>
       <section className="panel">
-        <h2>Category Management</h2>
-        <form className="stack" onSubmit={createCategory}>
-          <input value={newCategory.name} onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })} placeholder="Category name" />
-          <select value={newCategory.parent_id} onChange={(e) => setNewCategory({ ...newCategory, parent_id: e.target.value })}>
+        <div className="section-title">
+          <h3>7 Day Revenue Sparkline</h3>
+          <div className="quick-actions">
+            <button onClick={() => navigate("/admin/products")}>Add Product</button>
+            <button className="ghost-button" onClick={() => navigate("/admin/orders")}>View Orders</button>
+            <button className="ghost-button" onClick={() => navigate("/admin/users")}>Manage Users</button>
+          </div>
+        </div>
+        <SparklineChart data={summary.sparkline} />
+      </section>
+    </>
+  );
+}
+
+function AdminProductsPage({
+  products,
+  categories,
+  productForm,
+  setProductForm,
+  editingProduct,
+  setEditingProduct,
+  onSaveProduct,
+  categoryForm,
+  setCategoryForm,
+  onSaveCategory,
+}) {
+  function beginEdit(product) {
+    setEditingProduct(product);
+    setProductForm({
+      category_id: product.category_id,
+      name: product.name,
+      brand: product.brand || "",
+      description: product.description,
+      price: product.price,
+      stock_quantity: product.stock_quantity,
+      image_url: product.image_url || "",
+      tags: (product.tags_json || []).join(","),
+      variants: product.variants?.length
+        ? product.variants.map((variant) => ({
+            sku: variant.sku,
+            color: variant.color,
+            size: variant.size,
+            stock_quantity: variant.stock_quantity,
+            image_url: variant.image_url,
+          }))
+        : DEFAULT_PRODUCT_FORM.variants,
+    });
+  }
+  return (
+    <div className="admin-grid">
+      <section className="panel span-2">
+        <div className="section-title">
+          <h3>Product Management</h3>
+          <span>{products.length} visible rows</span>
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Category</th>
+                <th>Price</th>
+                <th>Stock</th>
+                <th>Brand</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {products.map((product) => (
+                <tr key={product.id}>
+                  <td>{product.name}</td>
+                  <td>{product.category_name}</td>
+                  <td>¥{Number(product.price).toFixed(2)}</td>
+                  <td>{product.stock_quantity}</td>
+                  <td>{product.brand}</td>
+                  <td><button className="ghost-button" onClick={() => beginEdit(product)}>Edit</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <form className="panel" onSubmit={onSaveProduct}>
+        <div className="section-title">
+          <h3>{editingProduct ? "Edit Product" : "Add Product"}</h3>
+          {editingProduct ? <button type="button" className="ghost-button" onClick={() => { setEditingProduct(null); setProductForm(DEFAULT_PRODUCT_FORM); }}>Reset</button> : null}
+        </div>
+        <div className="stack-list">
+          <select value={productForm.category_id} onChange={(event) => setProductForm((current) => ({ ...current, category_id: event.target.value }))}>
+            <option value="">Select category</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>{category.name}</option>
+            ))}
+          </select>
+          <input value={productForm.name} onChange={(event) => setProductForm((current) => ({ ...current, name: event.target.value }))} placeholder="Product name" />
+          <input value={productForm.brand} onChange={(event) => setProductForm((current) => ({ ...current, brand: event.target.value }))} placeholder="Brand" />
+          <textarea value={productForm.description} onChange={(event) => setProductForm((current) => ({ ...current, description: event.target.value }))} placeholder="Description" />
+          <input value={productForm.price} onChange={(event) => setProductForm((current) => ({ ...current, price: event.target.value }))} placeholder="Price" />
+          <input value={productForm.stock_quantity} onChange={(event) => setProductForm((current) => ({ ...current, stock_quantity: event.target.value }))} placeholder="Stock" />
+          <input value={productForm.tags} onChange={(event) => setProductForm((current) => ({ ...current, tags: event.target.value }))} placeholder="Tags" />
+          <input value={productForm.image_url} onChange={(event) => setProductForm((current) => ({ ...current, image_url: event.target.value }))} placeholder="Image URL" />
+          <div className="variant-table">
+            {productForm.variants.map((variant, index) => (
+              <div className="variant-row" key={`${index + 1}`}>
+                <input value={variant.sku} onChange={(event) => updateVariant(setProductForm, index, "sku", event.target.value)} placeholder="SKU" />
+                <input value={variant.color} onChange={(event) => updateVariant(setProductForm, index, "color", event.target.value)} placeholder="Color" />
+                <input value={variant.size} onChange={(event) => updateVariant(setProductForm, index, "size", event.target.value)} placeholder="Size" />
+                <input value={variant.stock_quantity} onChange={(event) => updateVariant(setProductForm, index, "stock_quantity", event.target.value)} placeholder="Stock" />
+              </div>
+            ))}
+            <button type="button" className="ghost-button" onClick={() => setProductForm((current) => ({ ...current, variants: [...current.variants, { sku: "", color: "", size: "", stock_quantity: "", image_url: "" }] }))}>
+              Add Variant
+            </button>
+          </div>
+          <button type="submit">{editingProduct ? "Update Product" : "Create Product"}</button>
+        </div>
+      </form>
+      <form className="panel" onSubmit={onSaveCategory}>
+        <div className="section-title">
+          <h3>Create Category</h3>
+          <span>Nested category selector</span>
+        </div>
+        <div className="stack-list">
+          <input value={categoryForm.name} onChange={(event) => setCategoryForm((current) => ({ ...current, name: event.target.value }))} placeholder="Category name" />
+          <select value={categoryForm.parent_id} onChange={(event) => setCategoryForm((current) => ({ ...current, parent_id: event.target.value }))}>
             <option value="">Top level</option>
             {categories.map((category) => (
               <option key={category.id} value={category.id}>{category.name}</option>
             ))}
           </select>
-          <textarea value={newCategory.description} onChange={(e) => setNewCategory({ ...newCategory, description: e.target.value })} placeholder="Description" />
-          <button type="submit">Create Category</button>
-        </form>
+          <textarea value={categoryForm.description} onChange={(event) => setCategoryForm((current) => ({ ...current, description: event.target.value }))} placeholder="Description" />
+          <button type="submit">Save Category</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function AdminOrdersPage({ orders, stockouts }) {
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  return (
+    <div className="admin-grid">
+      <section className="panel span-2">
+        <div className="section-title">
+          <h3>Order Management</h3>
+          <span>{orders.length} orders</span>
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Order</th>
+                <th>Customer</th>
+                <th>Status</th>
+                <th>Amount</th>
+                <th>Created</th>
+              </tr>
+            </thead>
+            <tbody>
+              {orders.map((order) => (
+                <tr key={order.id} onClick={() => setSelectedOrder(order)}>
+                  <td>#{order.id}</td>
+                  <td>{order.customer.username}</td>
+                  <td>{order.status}</td>
+                  <td>¥{order.total_amount.toFixed(2)}</td>
+                  <td>{new Date(order.created_at).toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
       <section className="panel">
-        <h2>Product Management</h2>
-        <form className="stack" onSubmit={createProduct}>
-          <select value={newProduct.category_id} onChange={(e) => setNewProduct({ ...newProduct, category_id: e.target.value })}>
-            <option value="">Choose category</option>
-            {categories.map((category) => (
-              <option key={category.id} value={category.id}>{category.name}</option>
-            ))}
-          </select>
-          <input value={newProduct.name} onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })} placeholder="Product name" />
-          <input value={newProduct.brand} onChange={(e) => setNewProduct({ ...newProduct, brand: e.target.value })} placeholder="Brand" />
-          <textarea value={newProduct.description} onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })} placeholder="Description" />
-          <input value={newProduct.price} onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })} placeholder="Price" />
-          <input value={newProduct.stock_quantity} onChange={(e) => setNewProduct({ ...newProduct, stock_quantity: e.target.value })} placeholder="Stock quantity" />
-          <input value={newProduct.tags_json} onChange={(e) => setNewProduct({ ...newProduct, tags_json: e.target.value })} placeholder="Tags comma separated" />
-          <input value={newProduct.image_url} onChange={(e) => setNewProduct({ ...newProduct, image_url: e.target.value })} placeholder="Image URL" />
-          <button type="submit">Create Product</button>
-        </form>
-      </section>
-      <section className="panel">
-        <h2>System Logs</h2>
-        <div className="stack">
-          {logs.slice(0, 10).map((log) => (
-            <div className="line-item" key={log.id}>
-              <span>{log.event_type} / {log.account}</span>
-              <span>{new Date(log.created_at).toLocaleString()}</span>
+        <div className="section-title">
+          <h3>Top Stockout Risks</h3>
+          <span>{stockouts.length} alerts</span>
+        </div>
+        <div className="stack-list">
+          {stockouts.slice(0, 8).map((item) => (
+            <div className="list-row" key={item.product_id}>
+              <strong>{item.product_name}</strong>
+              <span>{item.days_left} days</span>
             </div>
           ))}
         </div>
       </section>
-      {isAdmin ? (
-        <section className="panel">
-          <h2>Sales Accounts</h2>
-          <div className="stack">
-            {salesAccounts.map((account) => (
-              <div className="line-item" key={account.id}>
-                <span>{account.username}</span>
-                <span>{account.email}</span>
+      {selectedOrder ? (
+        <Modal title={`Order #${selectedOrder.id}`} onClose={() => setSelectedOrder(null)}>
+          <div className="stack-list">
+            <div className="list-row"><strong>Customer</strong><span>{selectedOrder.customer.username}</span></div>
+            <div className="list-row"><strong>Address</strong><span>{selectedOrder.shipping_address}</span></div>
+            <div className="list-row"><strong>Payment</strong><span>{selectedOrder.payment.method}</span></div>
+            {selectedOrder.items.map((item) => (
+              <div key={`${selectedOrder.id}-${item.product_id}`} className="list-row">
+                <span>{item.product_name}</span>
+                <strong>{item.quantity}</strong>
               </div>
             ))}
           </div>
-        </section>
+        </Modal>
       ) : null}
     </div>
   );
 }
 
-function RecommendationPanel({ title, items, onOpen, onAdd }) {
+function AdminUsersPage({ users, selectedUser, suspicious, onOpenUser }) {
+  return (
+    <div className="admin-grid">
+      <section className="panel span-2">
+        <div className="section-title">
+          <h3>User Management</h3>
+          <span>{users.length} customers</span>
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Tier</th>
+                <th>RFM</th>
+                <th>LTV</th>
+                <th>Orders</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((user) => (
+                <tr key={user.id} onClick={() => onOpenUser(user.id)}>
+                  <td>{user.username}</td>
+                  <td>{user.membership_tier}</td>
+                  <td><span className="segment-badge">{user.rfm_segment}</span></td>
+                  <td>¥{Number(user.ltv_prediction).toFixed(0)}</td>
+                  <td>{user.order_count}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <section className="panel">
+        <div className="section-title">
+          <h3>Suspicious Activity</h3>
+          <span>{suspicious.length} entries</span>
+        </div>
+        <div className="stack-list">
+          {suspicious.slice(0, 12).map((entry) => (
+            <div className="list-row" key={entry.id}>
+              <div>
+                <strong>{entry.reason}</strong>
+                <p>{entry.ip_address}</p>
+              </div>
+              <span className={`risk-pill ${entry.risk_level}`}>{entry.risk_level}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+      {selectedUser ? (
+        <Modal title={selectedUser.username} onClose={() => onOpenUser(null)}>
+          <div className="stack-list">
+            <div className="list-row"><strong>Email</strong><span>{selectedUser.email}</span></div>
+            <div className="list-row"><strong>Tier</strong><span>{selectedUser.membership_tier}</span></div>
+            <div className="section-title compact"><h4>Purchase History</h4></div>
+            {selectedUser.purchase_history.map((order) => (
+              <div className="list-row" key={order.id}>
+                <div>
+                  <strong>Order #{order.id}</strong>
+                  <p>{order.items.join(", ")}</p>
+                </div>
+                <span>¥{order.total_amount.toFixed(2)}</span>
+              </div>
+            ))}
+            <div className="section-title compact"><h4>Activity Log</h4></div>
+            {selectedUser.activity_log.slice(0, 10).map((event, index) => (
+              <div className="list-row" key={`${event.created_at}-${index}`}>
+                <span>{event.event_type}</span>
+                <span>{new Date(event.created_at).toLocaleString()}</span>
+              </div>
+            ))}
+          </div>
+        </Modal>
+      ) : null}
+    </div>
+  );
+}
+
+function AdminReportsPage({ dashboard, categoryPerformance, geography, rfm, cohorts, forecast, funnel, logs, inventoryAlerts }) {
+  return (
+    <div className="admin-grid">
+      <ChartPanel className="span-2" title="Sales Report">
+        <SalesSummaryChart data={dashboard?.sales_trends || []} />
+      </ChartPanel>
+      <ChartPanel title="RFM Segments">
+        <RfmPieChart data={rfm} />
+      </ChartPanel>
+      <ChartPanel title="Conversion Funnel">
+        <FunnelBarChart data={funnel} />
+      </ChartPanel>
+      <ChartPanel className="span-2" title="Geography Report">
+        <GeographyBarChart data={geography} />
+      </ChartPanel>
+      <ChartPanel title="Cohort Retention">
+        <CohortHeatmap data={cohorts} />
+      </ChartPanel>
+      <ChartPanel title="Forecast">
+        <ForecastLineChart data={forecast} />
+      </ChartPanel>
+      <section className="panel">
+        <div className="section-title">
+          <h3>Category Performance Table</h3>
+          <span>{categoryPerformance.length} rows</span>
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th>Revenue</th>
+                <th>Margin</th>
+                <th>Turnover</th>
+              </tr>
+            </thead>
+            <tbody>
+              {categoryPerformance.map((row) => (
+                <tr key={row.category_name}>
+                  <td>{row.category_name}</td>
+                  <td>¥{row.revenue.toFixed(2)}</td>
+                  <td>¥{row.margin.toFixed(2)}</td>
+                  <td>{row.turnover_rate}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <section className="panel">
+        <div className="section-title">
+          <h3>Logs & Inventory Alerts</h3>
+          <span>{logs.length} logs</span>
+        </div>
+        <div className="stack-list">
+          {inventoryAlerts.slice(0, 5).map((item) => (
+            <div className="list-row" key={item.product_id}>
+              <strong>{item.product_name}</strong>
+              <span>{item.stock_quantity}</span>
+            </div>
+          ))}
+          {logs.slice(0, 6).map((log) => (
+            <div className="list-row" key={log.id}>
+              <span>{log.event_type}</span>
+              <small>{new Date(log.created_at).toLocaleString()}</small>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function ProductSection({ title, items, onOpen, onAdd }) {
   return (
     <section className="panel">
-      <div className="section-head">
-        <h2>{title}</h2>
+      <div className="section-title">
+        <h3>{title}</h3>
         <span>{items.length} items</span>
+      </div>
+      <div className="product-grid">
+        {items.map((item) => (
+          <ProductCard key={item.id || item.product_id} item={item} onOpen={onOpen} onAdd={onAdd} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function RecommendationStrip({ title, items, onOpen, onAdd }) {
+  return (
+    <section className="panel">
+      <div className="section-title">
+        <h3>{title}</h3>
+        <span>{items.length} recommendations</span>
       </div>
       <div className="recommend-grid">
         {items.map((item) => (
-          <article key={item.product_id} className="recommend-card">
-            <div className="meta-line">
+          <article className="recommend-card" key={item.product_id}>
+            <div>
               <strong>{item.product_name}</strong>
-              <span>{item.reason}</span>
+              <p>{item.category_name || item.reason}</p>
             </div>
-            <p>{item.category_name || "General merchandise"}</p>
-            <div className="action-row">
-              {onOpen ? <button className="ghost" onClick={() => onOpen(item.product_id)}>Open</button> : null}
-              {onAdd ? <button onClick={() => onAdd({ id: item.product_id, name: item.product_name, price: item.score * 20 })}>Quick Add</button> : null}
+            <div className="quick-actions">
+              <button className="ghost-button" onClick={() => onOpen(item.product_id)}>Open</button>
+              {onAdd ? <button onClick={() => onAdd({ id: item.product_id, name: item.product_name, price: item.score || 99 }, null)}>Add</button> : null}
             </div>
           </article>
         ))}
@@ -1000,151 +1811,331 @@ function RecommendationPanel({ title, items, onOpen, onAdd }) {
   );
 }
 
-function MetricCard({ label, value }) {
+function ProductCard({ item, onOpen, onAdd }) {
+  const productId = item.id || item.product_id;
   return (
-    <div className="metric-card">
+    <article className="product-card">
+      <div className="product-visual" />
+      <span className="tag">{item.category_name || "Category"}</span>
+      <h4>{item.name || item.product_name}</h4>
+      <p>{item.description || "Recommendation generated from the seeded dataset and browsing behavior."}</p>
+      <div className="list-row compact">
+        <strong>¥{Number(item.price || item.score || 0).toFixed(2)}</strong>
+        {item.stock_quantity !== undefined ? <span>Stock {item.stock_quantity}</span> : null}
+      </div>
+      <div className="quick-actions">
+        <button className="ghost-button" onClick={() => onOpen(productId)}>View</button>
+        {onAdd ? <button onClick={() => onAdd(item)}>Add to Cart</button> : null}
+      </div>
+    </article>
+  );
+}
+
+function LoadingPanel({ label, dark }) {
+  return (
+    <section className={dark ? "panel panel-dark loading-panel" : "panel loading-panel"}>
+      <div className="spinner" />
+      <p>{label}</p>
+    </section>
+  );
+}
+
+function KpiCard({ label, value }) {
+  return (
+    <div className="kpi-card">
       <span>{label}</span>
       <strong>{value}</strong>
     </div>
   );
 }
 
-function SimpleList({ title, items }) {
+function ChartPanel({ title, children, className = "" }) {
   return (
-    <div className="subpanel">
-      <h3>{title}</h3>
-      <div className="stack">
-        {items.slice(0, 8).map((item) => (
-          <span key={item}>{item}</span>
-        ))}
+    <section className={`panel panel-chart ${className}`.trim()}>
+      <div className="section-title">
+        <h3>{title}</h3>
       </div>
-    </div>
+      {children}
+    </section>
   );
 }
 
-function WarRoomView({ warRoom }) {
-  const trendRef = useRef(null);
-  const categoryRef = useRef(null);
-  const geoRef = useRef(null);
-  const rfmRef = useRef(null);
-
-  useChart(trendRef, () => {
-    if (!warRoom) return null;
-    return {
-      backgroundColor: "transparent",
-      color: chartThemes,
-      tooltip: { trigger: "axis" },
-      xAxis: { type: "category", data: warRoom.trend_today_vs_yesterday.map((item) => item.label), axisLabel: { color: "#8ea1c1" } },
-      yAxis: { type: "value", axisLabel: { color: "#8ea1c1" } },
-      series: [{ type: "line", smooth: true, data: warRoom.trend_today_vs_yesterday.map((item) => item.value), areaStyle: {} }]
-    };
-  }, [warRoom]);
-
-  useChart(categoryRef, () => {
-    if (!warRoom) return null;
-    return {
-      backgroundColor: "transparent",
-      color: chartThemes,
-      tooltip: { trigger: "item" },
-      series: [{ type: "pie", radius: ["42%", "72%"], data: warRoom.category_pie.map((item) => ({ name: item.label, value: item.value })) }]
-    };
-  }, [warRoom]);
-
-  useChart(geoRef, () => {
-    if (!warRoom) return null;
-    return {
-      backgroundColor: "transparent",
-      color: chartThemes,
-      tooltip: { trigger: "axis" },
-      xAxis: { type: "category", data: warRoom.geography.slice(0, 10).map((item) => item.city), axisLabel: { color: "#8ea1c1", rotate: 25 } },
-      yAxis: { type: "value", axisLabel: { color: "#8ea1c1" } },
-      series: [{ type: "bar", data: warRoom.geography.slice(0, 10).map((item) => item.value), itemStyle: { borderRadius: 8 } }]
-    };
-  }, [warRoom]);
-
-  useChart(rfmRef, () => {
-    if (!warRoom) return null;
-    return {
-      backgroundColor: "transparent",
-      color: chartThemes,
-      radar: {
-        indicator: warRoom.rfm_distribution.slice(0, 6).map((item) => ({ name: item.segment, max: Math.max(...warRoom.rfm_distribution.map((entry) => entry.users), 1) })),
-        splitLine: { lineStyle: { color: "rgba(255,255,255,0.12)" } },
-        splitArea: { areaStyle: { color: ["transparent"] } },
-        axisName: { color: "#cad5ef" }
-      },
-      series: [{ type: "radar", data: [{ value: warRoom.rfm_distribution.slice(0, 6).map((item) => item.users), areaStyle: { opacity: 0.28 } }] }]
-    };
-  }, [warRoom]);
-
-  if (!warRoom) {
-    return <section className="dashboard-empty">Loading dashboard...</section>;
-  }
-
-  return (
-    <div className="warroom">
-      <section className="warroom-top">
-        <MetricCard label="GMV Today" value={`¥${warRoom.kpis.gmv_today.toFixed(0)}`} />
-        <MetricCard label="Active Users Now" value={warRoom.kpis.active_users_now} />
-        <MetricCard label="Orders Today" value={warRoom.kpis.orders_today} />
-        <MetricCard label="Alerts" value={warRoom.kpis.alerts_count} />
-      </section>
-      <section className="warroom-grid">
-        <div className="dashboard-card tall">
-          <div className="card-title">Revenue Delta by Hour</div>
-          <div className="chart" ref={trendRef} />
-        </div>
-        <div className="dashboard-card">
-          <div className="card-title">Category Revenue Mix</div>
-          <div className="chart" ref={categoryRef} />
-        </div>
-        <div className="dashboard-card">
-          <div className="card-title">City Sales Heat Snapshot</div>
-          <div className="chart" ref={geoRef} />
-        </div>
-        <div className="dashboard-card">
-          <div className="card-title">RFM Radar</div>
-          <div className="chart" ref={rfmRef} />
-        </div>
-        <div className="dashboard-card">
-          <div className="card-title">Live Transactions</div>
-          <div className="scroll-list">
-            {warRoom.transactions.slice(0, 10).map((transaction) => (
-              <div className="ticker-row" key={transaction.order_id}>
-                <span>{transaction.username}</span>
-                <strong>¥{transaction.amount.toFixed(2)}</strong>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="dashboard-card">
-          <div className="card-title">Inventory Alerts</div>
-          <div className="scroll-list">
-            {warRoom.inventory_alerts.slice(0, 10).map((alert) => (
-              <div className="ticker-row" key={alert.product_id}>
-                <span>{alert.product_name}</span>
-                <strong>{alert.stock_quantity}</strong>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function useChart(ref, optionFactory, deps) {
+function ChartCanvas({ option, dark = false, height = 280 }) {
+  const ref = useRef(null);
   useEffect(() => {
-    const element = ref.current;
-    if (!element) return undefined;
-    const chart = echarts.init(element);
-    const option = optionFactory();
-    if (option) chart.setOption(option);
+    const chart = echarts.init(ref.current, null, { renderer: "canvas" });
+    chart.setOption(option);
     const onResize = () => chart.resize();
     window.addEventListener("resize", onResize);
     return () => {
       window.removeEventListener("resize", onResize);
       chart.dispose();
     };
-  }, deps);
+  }, [option]);
+  return <div ref={ref} className={dark ? "chart chart-dark" : "chart"} style={{ height }} />;
+}
+
+function SalesTrendChart({ data }) {
+  const labels = data.map((item) => item.label);
+  const today = data.map((item) => item.value);
+  const yesterday = data.map((item) => Math.max(0, item.value - 1200));
+  return (
+    <ChartCanvas
+      dark
+      option={{
+        color: ["#60a5fa", "#22c55e"],
+        backgroundColor: "transparent",
+        tooltip: { trigger: "axis" },
+        legend: { data: ["Today", "Yesterday"], textStyle: { color: "#e2e8f0" } },
+        xAxis: { type: "category", data: labels, axisLabel: { color: "#cbd5e1" } },
+        yAxis: { type: "value", axisLabel: { color: "#cbd5e1" } },
+        series: [
+          { name: "Today", type: "line", smooth: true, areaStyle: {}, data: today },
+          { name: "Yesterday", type: "line", smooth: true, data: yesterday },
+        ],
+      }}
+    />
+  );
+}
+
+function CategoryShareChart({ data }) {
+  return (
+    <ChartCanvas
+      dark
+      option={{
+        color: ["#60a5fa", "#34d399", "#f59e0b", "#f87171", "#a78bfa", "#38bdf8"],
+        tooltip: { trigger: "item" },
+        series: [
+          {
+            type: "pie",
+            radius: ["42%", "72%"],
+            data: data.slice(0, 8).map((item) => ({ name: item.category_name, value: item.revenue })),
+            label: { color: "#e2e8f0" },
+          },
+        ],
+      }}
+    />
+  );
+}
+
+function GeographyBarChart({ data }) {
+  const rows = aggregateGeography(data).slice(0, 12);
+  return (
+    <ChartCanvas
+      dark
+      option={{
+        color: ["#60a5fa"],
+        tooltip: { trigger: "axis" },
+        xAxis: { type: "value", axisLabel: { color: "#cbd5e1" } },
+        yAxis: { type: "category", data: rows.map((item) => item.name), axisLabel: { color: "#cbd5e1" } },
+        series: [{ type: "bar", data: rows.map((item) => item.value), itemStyle: { borderRadius: 8 } }],
+      }}
+    />
+  );
+}
+
+function RfmRadarChart({ data }) {
+  const maxValue = Math.max(...data.map((item) => item.users), 1);
+  return (
+    <ChartCanvas
+      dark
+      option={{
+        radar: {
+          indicator: data.slice(0, 6).map((item) => ({ name: item.segment, max: maxValue })),
+          axisName: { color: "#e2e8f0" },
+          splitLine: { lineStyle: { color: "rgba(226,232,240,0.2)" } },
+        },
+        series: [
+          {
+            type: "radar",
+            data: [{ value: data.slice(0, 6).map((item) => item.users), areaStyle: { opacity: 0.28 } }],
+          },
+        ],
+      }}
+    />
+  );
+}
+
+function CohortHeatmap({ data }) {
+  const months = Array.from(new Set(data.flatMap((row) => Object.keys(row.retention || {})))).slice(0, 6);
+  const source = data.slice(0, 8);
+  const heatmapData = [];
+  source.forEach((row, rowIndex) => {
+    months.forEach((month, monthIndex) => {
+      heatmapData.push([monthIndex, rowIndex, Number(row.retention[month] || 0)]);
+    });
+  });
+  return (
+    <ChartCanvas
+      dark
+      option={{
+        grid: { left: 70, right: 10, top: 20, bottom: 40 },
+        xAxis: { type: "category", data: months, axisLabel: { color: "#cbd5e1" } },
+        yAxis: { type: "category", data: source.map((row) => row.cohort), axisLabel: { color: "#cbd5e1" } },
+        visualMap: { min: 0, max: 100, calculable: false, orient: "horizontal", left: "center", bottom: 0, textStyle: { color: "#cbd5e1" } },
+        series: [{ type: "heatmap", data: heatmapData, label: { show: true, color: "#0f172a" } }],
+      }}
+    />
+  );
+}
+
+function ForecastAndAlerts({ forecast, stockouts }) {
+  return (
+    <div className="forecast-layout">
+      <ForecastLineChart data={forecast} />
+      <div className="stack-list">
+        {stockouts.slice(0, 5).map((item) => (
+          <div className="list-row" key={item.product_id}>
+            <div>
+              <strong>{item.product_name}</strong>
+              <p>Potential stockout</p>
+            </div>
+            <span>{item.days_left}d</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ForecastLineChart({ data }) {
+  return (
+    <ChartCanvas
+      dark
+      option={{
+        color: ["#f59e0b"],
+        tooltip: { trigger: "axis" },
+        xAxis: { type: "category", data: data.map((item) => item.label), axisLabel: { color: "#cbd5e1" } },
+        yAxis: { type: "value", axisLabel: { color: "#cbd5e1" } },
+        series: [{ type: "line", smooth: true, areaStyle: {}, data: data.map((item) => item.value) }],
+      }}
+    />
+  );
+}
+
+function TickerList({ orders }) {
+  return (
+    <div className="ticker-list">
+      {orders.map((order) => (
+        <div className="ticker-row" key={order.id}>
+          <div>
+            <strong>{order.customer.username}</strong>
+            <p>{order.items[0]?.product_name || "Order item"}</p>
+          </div>
+          <div className="ticker-meta">
+            <strong>¥{order.total_amount.toFixed(2)}</strong>
+            <small>{new Date(order.created_at).toLocaleTimeString()}</small>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SparklineChart({ data }) {
+  return (
+    <ChartCanvas
+      option={{
+        color: ["#2563eb"],
+        grid: { top: 12, right: 12, left: 18, bottom: 18 },
+        xAxis: { type: "category", show: false, data: data.map((item) => item.label) },
+        yAxis: { type: "value", show: false },
+        series: [{ type: "line", smooth: true, areaStyle: {}, data: data.map((item) => item.value) }],
+      }}
+      height={180}
+    />
+  );
+}
+
+function SalesSummaryChart({ data }) {
+  return (
+    <ChartCanvas
+      option={{
+        color: ["#2563eb"],
+        tooltip: { trigger: "axis" },
+        xAxis: { type: "category", data: data.map((item) => item.label) },
+        yAxis: { type: "value" },
+        series: [{ type: "line", smooth: true, data: data.map((item) => item.value), areaStyle: {} }],
+      }}
+      height={220}
+    />
+  );
+}
+
+function RfmPieChart({ data }) {
+  return (
+    <ChartCanvas
+      option={{
+        tooltip: { trigger: "item" },
+        series: [{ type: "pie", radius: ["36%", "72%"], data: data.map((item) => ({ name: item.segment, value: item.users })) }],
+      }}
+      height={220}
+    />
+  );
+}
+
+function FunnelBarChart({ data }) {
+  return (
+    <ChartCanvas
+      option={{
+        color: ["#16a34a"],
+        xAxis: { type: "category", data: data.map((item) => item.step) },
+        yAxis: { type: "value" },
+        series: [{ type: "bar", data: data.map((item) => item.users), itemStyle: { borderRadius: 8 } }],
+      }}
+      height={220}
+    />
+  );
+}
+
+function Modal({ title, children, onClose }) {
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-card" onClick={(event) => event.stopPropagation()}>
+        <div className="section-title">
+          <h3>{title}</h3>
+          <button className="ghost-button" onClick={onClose}>Close</button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function updateVariant(setProductForm, index, field, value) {
+  setProductForm((current) => ({
+    ...current,
+    variants: current.variants.map((variant, variantIndex) =>
+      variantIndex === index ? { ...variant, [field]: value } : variant
+    ),
+  }));
+}
+
+function aggregateGeography(rows) {
+  const grouped = new Map();
+  rows.forEach((row) => {
+    const current = grouped.get(row.province) || 0;
+    grouped.set(row.province, current + Number(row.value || 0));
+  });
+  return [...grouped.entries()]
+    .map(([name, value]) => ({ name, value }))
+    .sort((left, right) => right.value - left.value);
+}
+
+function getTierProgress(tier) {
+  return { bronze: 24, silver: 51, gold: 76, platinum: 100 }[String(tier || "").toLowerCase()] || 12;
+}
+
+function generateCaptchaSeed() {
+  const first = Math.floor(Math.random() * 8) + 1;
+  const second = Math.floor(Math.random() * 8) + 1;
+  return { equation: `${first} + ${second} = ?`, answer: first + second };
+}
+
+function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    void document.documentElement.requestFullscreen();
+  } else {
+    void document.exitFullscreen();
+  }
 }
