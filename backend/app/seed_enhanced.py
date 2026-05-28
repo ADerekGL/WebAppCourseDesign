@@ -619,9 +619,9 @@ def create_orders_and_events(db, users: list[User], products: list[Product], tot
 
 def create_marketing_and_ops(db, products: list[Product]) -> None:
     banners = [
-        Banner(title="618 Mid-Year Sale", subtitle="Big discounts on electronics and home", image_url="https://example.com/banner-618.jpg", target_url="/campaign/618", status=BannerStatus.ACTIVE),
-        Banner(title="Double 11 Warmup", subtitle="Trending products with live demand", image_url="https://example.com/banner-1111.jpg", target_url="/campaign/double11", status=BannerStatus.ACTIVE),
-        Banner(title="Member Day", subtitle="Exclusive coupons for Gold and Platinum", image_url="https://example.com/banner-member.jpg", target_url="/membership", status=BannerStatus.ACTIVE),
+        Banner(title="618 Mid-Year Sale", subtitle="Big discounts on electronics and home", image_url="https://picsum.photos/seed/banner618/1280/720", target_url="/campaign/618", status=BannerStatus.ACTIVE),
+        Banner(title="Double 11 Warmup", subtitle="Trending products with live demand", image_url="https://picsum.photos/seed/banner1111/1280/720", target_url="/campaign/double11", status=BannerStatus.ACTIVE),
+        Banner(title="Member Day", subtitle="Exclusive coupons for Gold and Platinum", image_url="https://picsum.photos/seed/bannermember/1280/720", target_url="/membership", status=BannerStatus.ACTIVE),
     ]
     for banner in banners:
         banner.click_count = random.randint(180, 1200)

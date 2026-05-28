@@ -10,14 +10,25 @@ export class ApiError extends Error {
 }
 
 export async function apiFetch(path, options = {}, token) {
-  const response = await fetch(`${API_BASE}${path}`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options.headers || {})
-    },
-    ...options
-  });
+  let response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, {
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(options.headers || {}),
+      },
+      ...options,
+    });
+  } catch (error) {
+    throw new ApiError(
+      typeof navigator !== "undefined" && navigator.onLine === false
+        ? "Network offline. Please reconnect and retry."
+        : "Network request failed",
+      0,
+      { detail: error?.message || "Network request failed" }
+    );
+  }
 
   if (!response.ok) {
     const payload = await response.json().catch(() => ({ detail: "Request failed" }));

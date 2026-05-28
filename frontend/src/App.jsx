@@ -10,6 +10,7 @@ import {
 import { CanvasRenderer } from "echarts/renderers";
 import * as echarts from "echarts/core";
 import { ApiError, api } from "./api";
+import PaymentCheckout from "./components/PaymentCheckout";
 
 echarts.use([
   BarChart,
@@ -52,6 +53,7 @@ export default function App() {
     return raw ? JSON.parse(raw) : null;
   });
   const [toast, setToast] = useState(null);
+  const [isOffline, setIsOffline] = useState(() => (typeof navigator !== "undefined" ? !navigator.onLine : false));
   const [range, setRange] = useState("today");
   const [loading, setLoading] = useState({});
   const [errors, setErrors] = useState({});
@@ -84,7 +86,17 @@ export default function App() {
     selectedImageUrl: null,
   });
   const [cart, setCart] = useState([]);
-  const [checkout, setCheckout] = useState({ shipping_address: "", payment_method: "card", coupon_code: "" });
+  const [checkout, setCheckout] = useState({
+    contact_name: "",
+    contact_phone: "",
+    shipping_address: "",
+    payment_method: "card",
+    coupon_code: "",
+    card_number: "",
+    expiry_date: "",
+    cvv: "",
+    cardholder_name: "",
+  });
   const [profileData, setProfileData] = useState({
     profile: null,
     browsing: [],
@@ -140,6 +152,23 @@ export default function App() {
     const onPopState = () => setRoute(window.location.pathname || "/");
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  useEffect(() => {
+    const goOnline = () => {
+      setIsOffline(false);
+      setToast({ type: "success", message: "Connection restored." });
+    };
+    const goOffline = () => {
+      setIsOffline(true);
+      setToast({ type: "warning", message: "You are offline. Data may be stale until connection returns." });
+    };
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
+    };
   }, []);
 
   useEffect(() => {
@@ -200,11 +229,16 @@ export default function App() {
 
   function navigate(nextPath) {
     if (nextPath === route) return;
+    document.body.classList.remove("show-mobile-nav");
     window.history.pushState({}, "", nextPath);
     setRoute(nextPath);
   }
 
   function showError(error) {
+    if (error instanceof ApiError && error.status === 0) {
+      setToast({ type: "warning", message: error.message || "Network request failed" });
+      return;
+    }
     if (error instanceof ApiError && error.status === 429) {
       setToast({ type: "warning", message: "Too many requests, please slow down." });
       return;
@@ -508,27 +542,25 @@ export default function App() {
     setToast({ type: "success", message: `${product.name} added to cart.` });
   }
 
-  async function submitCheckout(event) {
-    event.preventDefault();
+  async function submitCheckout(payload) {
     if (!auth || !isCustomer) return;
     await withLoading("checkout", async () => {
-      await api.checkout(
-        {
-          shipping_address: checkout.shipping_address,
-          payment_method: checkout.payment_method,
-          coupon_code: checkout.coupon_code,
-          items: cart.map((item) => ({
-            product_id: item.product_id,
-            quantity: item.quantity,
-            variant_id: item.variant_id,
-          })),
-        },
-        auth.access_token
-      );
+      await api.checkout(payload, auth.access_token);
       setCart([]);
-      setCheckout({ shipping_address: "", payment_method: "card", coupon_code: "" });
-      setToast({ type: "success", message: "Checkout completed successfully." });
+      setCheckout({
+        contact_name: "",
+        contact_phone: "",
+        shipping_address: "",
+        payment_method: "card",
+        coupon_code: "",
+        card_number: "",
+        expiry_date: "",
+        cvv: "",
+        cardholder_name: "",
+      });
+      setToast({ type: "success", message: "Payment Successful" });
       await loadProfileView();
+      navigate("/profile");
     });
   }
 
@@ -550,6 +582,27 @@ export default function App() {
     });
   }
 
+  function updateCartQuantity(target, delta) {
+    setCart((current) =>
+      current
+        .map((item) => {
+          if (item.product_id !== target.product_id || String(item.variant_id || "") !== String(target.variant_id || "")) {
+            return item;
+          }
+          return { ...item, quantity: item.quantity + delta };
+        })
+        .filter((item) => item.quantity > 0)
+    );
+  }
+
+  function removeFromCart(target) {
+    setCart((current) =>
+      current.filter(
+        (item) => item.product_id !== target.product_id || String(item.variant_id || "") !== String(target.variant_id || "")
+      )
+    );
+  }
+
   async function saveProduct(event) {
     event.preventDefault();
     if (!auth || !isStaff) return;
@@ -561,7 +614,10 @@ export default function App() {
       price: Number(productForm.price),
       stock_quantity: Number(productForm.stock_quantity),
       image_url: productForm.image_url,
+      thumbnail_url: productForm.image_url,
       tags_json: productForm.tags.split(",").map((item) => item.trim()).filter(Boolean),
+      image_urls: productForm.image_url ? [productForm.image_url] : [],
+      gallery_json: productForm.image_url ? [productForm.image_url] : [],
       variants: productForm.variants.map((variant, index) => ({
         sku: variant.sku || `${productForm.name.replace(/\s+/g, "-").toUpperCase()}-${index + 1}`,
         color: variant.color || "Default",
@@ -638,6 +694,12 @@ export default function App() {
         </div>
       ) : null}
 
+      {isOffline ? (
+        <div className="offline-banner">
+          <span>Offline mode: retry actions after the network reconnects.</span>
+        </div>
+      ) : null}
+
       {!auth ? (
         <LandingPage
           banners={publicData.banners}
@@ -668,6 +730,7 @@ export default function App() {
               onOpenProduct={(id) => navigate(`/product/${id}`)}
               onSearch={() => navigate("/search")}
               onAddToCart={addToCart}
+              onNavigate={navigate}
             />
           ) : null}
           {route === "/search" ? (
@@ -678,6 +741,7 @@ export default function App() {
               loading={loading.search}
               onOpenProduct={(id) => navigate(`/product/${id}`)}
               onSearch={loadSearchResults}
+              onAddToCart={addToCart}
             />
           ) : null}
           {route.startsWith("/product/") ? (
@@ -697,6 +761,8 @@ export default function App() {
               setCheckout={setCheckout}
               onSubmit={submitCheckout}
               loading={loading.checkout}
+              onUpdateQuantity={updateCartQuantity}
+              onRemove={removeFromCart}
             />
           ) : null}
           {route === "/profile" && auth ? (
@@ -921,10 +987,11 @@ function LandingPage({ banners, categories, trending, onLogin, onRegister, loadi
         right={
           <FeatureCardStack
             items={[
-              { title: "AI Recommendations", body: "Browse-to-buy paths tuned by collaborative filtering." },
-              { title: "Live Inventory", body: "See stock levels update in real time." },
-              { title: "Secure Checkout", body: "Encrypted payments with instant confirmation." },
+              { title: "AI Recommendations", body: "Browse-to-buy paths tuned by collaborative filtering.", path: "/search" },
+              { title: "Live Inventory", body: "See stock levels update in real time.", path: "/search" },
+              { title: "Secure Checkout", body: "Encrypted payments with instant confirmation.", path: "/cart" },
             ]}
+            onNavigate={navigate}
           />
         }
       />
@@ -935,10 +1002,11 @@ function LandingPage({ banners, categories, trending, onLogin, onRegister, loadi
         right={
           <FeatureCardStack
             items={[
-              { title: "War Room Dashboard", body: "Full-screen ECharts visualization with real-time KPIs." },
-              { title: "RFM Segmentation", body: "Auto-classify customers into Champions, Loyal, At Risk, Lost." },
-              { title: "Sales Forecasting", body: "7-day and 30-day trend predictions with anomaly alerts." },
+              { title: "War Room Dashboard", body: "Full-screen ECharts visualization with real-time KPIs.", path: "/search" },
+              { title: "RFM Segmentation", body: "Auto-classify customers into Champions, Loyal, At Risk, Lost.", path: "/search" },
+              { title: "Sales Forecasting", body: "7-day and 30-day trend predictions with anomaly alerts.", path: "/search" },
             ]}
+            onNavigate={navigate}
           />
         }
       />
@@ -1040,7 +1108,7 @@ function SectionSplit({ index, title, subtitle, description, action, right, hero
   );
 }
 
-function FeatureCardStack({ items }) {
+function FeatureCardStack({ items, onNavigate }) {
   return (
     <div className="feature-stack">
       {items.map((item) => (
@@ -1049,7 +1117,14 @@ function FeatureCardStack({ items }) {
           <div>
             <h4>{item.title}</h4>
             <p>{item.body}</p>
-            <button className="link-button">Read More -&gt;</button>
+            <button
+              className="link-button"
+              onClick={() => {
+                if (item.path && onNavigate) onNavigate(item.path);
+              }}
+            >
+              Read More -&gt;
+            </button>
           </div>
         </article>
       ))}
@@ -1090,7 +1165,10 @@ function BannerCarousel({ banners, compact }) {
   const active = banners[index];
   return (
     <div className={compact ? "banner banner-compact" : "banner"}>
-      <div className="banner-art" />
+      <div
+        className="banner-art banner-art-image"
+        style={{ backgroundImage: `linear-gradient(rgba(10, 14, 26, 0.18), rgba(10, 14, 26, 0.28)), url(${active.image_url})` }}
+      />
       <div className="banner-copy">
         <span className="eyebrow">Campaign</span>
         <h3>{active.title}</h3>
@@ -1100,8 +1178,9 @@ function BannerCarousel({ banners, compact }) {
   );
 }
 
-function HomePage({ banners, categories, products, trending, personalized, onOpenProduct, onSearch, onAddToCart }) {
+function HomePage({ banners, categories, products, trending, personalized, onOpenProduct, onSearch, onAddToCart, onNavigate }) {
   const newArrivals = products.slice(0, 8);
+  const topRated = products.filter((item) => Number(item.rating_average || 0) >= 4).slice(0, 8);
   const limitedOffers = products.filter((item) => (item.tags_json || []).includes("limited-stock")).slice(0, 8);
   return (
     <>
@@ -1122,10 +1201,11 @@ function HomePage({ banners, categories, products, trending, personalized, onOpe
           <div className="stacked-mix">
             <FeatureCardStack
               items={[
-                { title: "AI Recommendations", body: "Browse-to-buy paths tuned by collaborative filtering." },
-                { title: "Live Inventory", body: "See stock levels update in real time." },
-                { title: "Secure Checkout", body: "Encrypted payments with instant confirmation." },
+                { title: "AI Recommendations", body: "Browse-to-buy paths tuned by collaborative filtering.", path: "/search" },
+                { title: "Live Inventory", body: "See stock levels update in real time.", path: "/search" },
+                { title: "Secure Checkout", body: "Encrypted payments with instant confirmation.", path: "/cart" },
               ]}
+              onNavigate={onNavigate}
             />
             {personalized.length ? <RecommendationStrip title="For You" items={personalized} onOpen={onOpenProduct} onAdd={onAddToCart} compact /> : null}
           </div>
@@ -1139,10 +1219,11 @@ function HomePage({ banners, categories, products, trending, personalized, onOpe
           <div className="stacked-mix">
             <FeatureCardStack
               items={[
-                { title: "War Room Dashboard", body: "Full-screen ECharts visualization with real-time KPIs." },
-                { title: "RFM Segmentation", body: "Auto-classify customers into Champions, Loyal, At Risk, Lost." },
-                { title: "Sales Forecasting", body: "7-day and 30-day trend predictions with anomaly alerts." },
+                { title: "War Room Dashboard", body: "Full-screen ECharts visualization with real-time KPIs.", path: "/profile" },
+                { title: "RFM Segmentation", body: "Auto-classify customers into Champions, Loyal, At Risk, Lost.", path: "/profile" },
+                { title: "Sales Forecasting", body: "7-day and 30-day trend predictions with anomaly alerts.", path: "/search" },
               ]}
+              onNavigate={onNavigate}
             />
             <RecommendationStrip title="Trending Now" items={trending} onOpen={onOpenProduct} onAdd={onAddToCart} compact />
           </div>
@@ -1154,6 +1235,7 @@ function HomePage({ banners, categories, products, trending, personalized, onOpe
         <p>Sales Manager</p>
       </section>
       <ProductSection title="New Arrivals" items={newArrivals} onOpen={onOpenProduct} onAdd={onAddToCart} />
+      <ProductSection title="Trending Picks" items={topRated} onOpen={onOpenProduct} onAdd={onAddToCart} />
       <ProductSection title="Limited Offers" items={limitedOffers} onOpen={onOpenProduct} onAdd={onAddToCart} />
       <section className="panel">
         <div className="section-title">
@@ -1173,14 +1255,14 @@ function HomePage({ banners, categories, products, trending, personalized, onOpe
   );
 }
 
-function SearchPage({ state, setState, categories, loading, onOpenProduct, onSearch }) {
+function SearchPage({ state, setState, categories, loading, onOpenProduct, onSearch, onAddToCart }) {
   const totalPages = Math.max(1, Math.ceil((state.total || 0) / 12));
   return (
     <>
       <section className="panel">
         <div className="section-title">
           <h3>Search & Filter</h3>
-          <span>{state.total} results</span>
+          <span>{state.total} results / page {state.page}</span>
         </div>
         <div className="search-layout">
           <div className="search-primary">
@@ -1238,7 +1320,7 @@ function SearchPage({ state, setState, categories, loading, onOpenProduct, onSea
         </section>
       ) : null}
       {state.results.length ? (
-        <ProductSection title="Search Results" items={state.results} onOpen={onOpenProduct} />
+        <ProductSection title="Search Results" items={state.results} onOpen={onOpenProduct} onAdd={onAddToCart} />
       ) : null}
       <section className="panel pagination-bar">
         <button className="ghost-button" disabled={state.page <= 1} onClick={() => setState((current) => ({ ...current, page: current.page - 1 }))}>Previous</button>
@@ -1250,6 +1332,10 @@ function SearchPage({ state, setState, categories, loading, onOpenProduct, onSea
 }
 
 function ProductPage({ productState, setProductState, loading, onBack, onAddToCart, onOpenProduct }) {
+  const [activeTab, setActiveTab] = useState("description");
+  useEffect(() => {
+    setActiveTab("description");
+  }, [productState.detail?.id]);
   if (loading || !productState.detail) return <LoadingPanel label="Loading product detail..." />;
   const { detail, reviews, boughtTogether, similar, selectedVariantId, selectedImageUrl } = productState;
   const selectedVariant = detail.variants?.find((variant) => variant.id === selectedVariantId) || detail.variants?.[0];
@@ -1353,43 +1439,50 @@ function ProductPage({ productState, setProductState, loading, onBack, onAddToCa
         </div>
       </section>
       <section className="product-tabs">
-        <button className="tab-link active">Description</button>
-        <button className="tab-link">Reviews</button>
-        <button className="tab-link">Recommendations</button>
+        <button className={activeTab === "description" ? "tab-link active" : "tab-link"} onClick={() => setActiveTab("description")}>Description</button>
+        <button className={activeTab === "reviews" ? "tab-link active" : "tab-link"} onClick={() => setActiveTab("reviews")}>Reviews</button>
+        <button className={activeTab === "recommendations" ? "tab-link active" : "tab-link"} onClick={() => setActiveTab("recommendations")}>Recommendations</button>
       </section>
-      <section className="panel product-tab-card">
-        <div className="section-title">
-          <h3>Description</h3>
-          <span>Overview</span>
-        </div>
-        <p>{detail.description}</p>
-      </section>
-      <RecommendationStrip title="Frequently Bought Together" items={boughtTogether} onOpen={onOpenProduct} />
-      <RecommendationStrip title="More Like This" items={similar} onOpen={onOpenProduct} />
-      <section className="panel product-tab-card">
-        <div className="section-title">
-          <h3>Recent Reviews</h3>
-          <span>{reviews.length} total</span>
-        </div>
-        <div className="review-grid">
-          {reviews.slice(0, 6).map((review) => (
-            <article className="review-card" key={review.id}>
-              <div className="section-title compact">
-                <strong>{review.user_name}</strong>
-                <span>{review.rating} / 5</span>
-              </div>
-              <h4>{review.title}</h4>
-              <p>{review.content}</p>
-            </article>
-          ))}
-        </div>
-      </section>
+      {activeTab === "description" ? (
+        <section className="panel product-tab-card">
+          <div className="section-title">
+            <h3>Description</h3>
+            <span>Overview</span>
+          </div>
+          <p>{detail.description}</p>
+        </section>
+      ) : null}
+      {activeTab === "reviews" ? (
+        <section className="panel product-tab-card">
+          <div className="section-title">
+            <h3>Recent Reviews</h3>
+            <span>{reviews.length} total · photo-friendly review stream</span>
+          </div>
+          <div className="review-grid">
+            {reviews.slice(0, 6).map((review) => (
+              <article className="review-card" key={review.id}>
+                <div className="section-title compact">
+                  <strong>{review.user_name}</strong>
+                  <span>{review.rating} / 5</span>
+                </div>
+                <h4>{review.title}</h4>
+                <p>{review.content}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
+      {activeTab === "recommendations" ? (
+        <>
+          <RecommendationStrip title="Frequently Bought Together" items={boughtTogether} onOpen={onOpenProduct} onAdd={onAddToCart} />
+          <RecommendationStrip title="More Like This" items={similar} onOpen={onOpenProduct} onAdd={onAddToCart} />
+        </>
+      ) : null}
     </>
   );
 }
 
-function CartPage({ cart, checkout, setCheckout, onSubmit, loading }) {
-  const total = cart.reduce((sum, item) => sum + item.unit_price * item.quantity, 0);
+function CartPage({ cart, checkout, setCheckout, onSubmit, loading, onUpdateQuantity, onRemove }) {
   return (
     <section className="checkout-grid">
       <div className="panel">
@@ -1411,32 +1504,31 @@ function CartPage({ cart, checkout, setCheckout, onSubmit, loading }) {
                   showLabel={false}
                 />
                 <div>
-                <strong>{item.name}</strong>
-                <p>{item.variant_label}</p>
+                  <strong>{item.name}</strong>
+                  <p>{item.variant_label}</p>
                 </div>
               </div>
-              <span>{item.quantity} x CNY {item.unit_price.toFixed(2)}</span>
+              <div className="cart-line-actions">
+                <div className="quantity-stepper">
+                  <button type="button" className="ghost-button" onClick={() => onUpdateQuantity(item, -1)}>-</button>
+                  <span>{item.quantity}</span>
+                  <button type="button" className="ghost-button" onClick={() => onUpdateQuantity(item, 1)}>+</button>
+                </div>
+                <strong>CNY {(item.quantity * item.unit_price).toFixed(2)}</strong>
+                <button type="button" className="ghost-button" onClick={() => onRemove(item)}>Remove</button>
+              </div>
             </div>
           ))}
           {!cart.length ? <p className="muted-copy">Your cart is empty.</p> : null}
         </div>
       </div>
-      <form className="panel" onSubmit={onSubmit}>
-        <div className="section-title">
-          <h3>Checkout</h3>
-          <strong>CNY {total.toFixed(2)}</strong>
-        </div>
-        <div className="stack-list">
-          <textarea value={checkout.shipping_address} onChange={(event) => setCheckout((current) => ({ ...current, shipping_address: event.target.value }))} placeholder="Shipping address" />
-          <select value={checkout.payment_method} onChange={(event) => setCheckout((current) => ({ ...current, payment_method: event.target.value }))}>
-            <option value="card">Card</option>
-            <option value="alipay">Alipay</option>
-            <option value="wechat">WeChat</option>
-          </select>
-          <input value={checkout.coupon_code} onChange={(event) => setCheckout((current) => ({ ...current, coupon_code: event.target.value }))} placeholder="Coupon code" />
-          <button type="submit" disabled={!cart.length || loading}>Complete Purchase</button>
-        </div>
-      </form>
+      <PaymentCheckout
+        cart={cart}
+        checkout={checkout}
+        setCheckout={setCheckout}
+        submitting={loading}
+        onSubmitOrder={onSubmit}
+      />
     </section>
   );
 }
@@ -1511,6 +1603,35 @@ function ProfilePage({ profileData, setProfileData, onSaveAddress, onDeleteAddre
               </div>
               <span>{new Date(item.created_at).toLocaleString()}</span>
             </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="section-title">
+          <h3>Wishlist</h3>
+          <span>{profileData.wishlist.length} saved items</span>
+        </div>
+        <div className="product-grid product-grid-compact">
+          {profileData.wishlist.map((item) => (
+            <article className="product-card compact-card" key={item.id}>
+              <ProductImage
+                src={item.thumbnail_url || item.image_url}
+                fallbackKey={item.category_name}
+                alt={item.product_name}
+                productId={item.product_id}
+                className="product-image product-image-card"
+                containerClassName="product-visual"
+                showLabel={false}
+              />
+              <span className="tag">{item.category_name || "Wishlist"}</span>
+              <h4>{item.product_name}</h4>
+              <p>Saved for later</p>
+              <div className="list-row compact">
+                <strong>CNY {Number(item.price).toFixed(2)}</strong>
+                <span>{item.price_drop_alert ? "Drop alert on" : "Watch only"}</span>
+              </div>
+            </article>
           ))}
         </div>
       </section>
@@ -1613,6 +1734,7 @@ function ProfilePage({ profileData, setProfileData, onSaveAddress, onDeleteAddre
             {profileData.orderModal.timeline.map((step) => (
               <div className="timeline-step" key={`${profileData.orderModal.id}-${step.status}-${step.created_at}`}>
                 <strong>{step.status}</strong>
+                <p>{step.note}</p>
                 <span>{new Date(step.created_at).toLocaleString()}</span>
               </div>
             ))}
@@ -1681,6 +1803,9 @@ function DashboardPage({ data, loading, error, range, setRange, onRetry }) {
         <ChartPanel className="span-2" title="Province Sales Ranking">
           <GeographyBarChart data={data.geography} />
         </ChartPanel>
+        <ChartPanel title="Top Products">
+          <TopProductsBarChart data={data.warRoom.top_products || data.dashboard?.top_products || []} />
+        </ChartPanel>
         <ChartPanel title="Cohort Heatmap">
           <CohortHeatmap data={data.cohorts} />
         </ChartPanel>
@@ -1736,10 +1861,39 @@ function AdminProductsPage({
   error,
   onRetry,
 }) {
+  const [query, setQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [sortKey, setSortKey] = useState("updated");
+  const [page, setPage] = useState(1);
+  const [showEditor, setShowEditor] = useState(false);
+  const pageSize = 10;
+  const filteredProducts = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    const next = products.filter((product) => {
+      const matchesQuery = !normalizedQuery || [product.name, product.brand, product.category_name].join(" ").toLowerCase().includes(normalizedQuery);
+      const matchesCategory = !categoryFilter || String(product.category_id) === String(categoryFilter);
+      return matchesQuery && matchesCategory;
+    });
+    const ranked = [...next];
+    ranked.sort((left, right) => {
+      if (sortKey === "price") return Number(right.price) - Number(left.price);
+      if (sortKey === "stock") return Number(right.stock_quantity) - Number(left.stock_quantity);
+      return String(left.name).localeCompare(String(right.name));
+    });
+    return ranked;
+  }, [products, query, categoryFilter, sortKey]);
+  const pageCount = Math.max(1, Math.ceil(filteredProducts.length / pageSize));
+  const pagedProducts = filteredProducts.slice((page - 1) * pageSize, page * pageSize);
+
+  useEffect(() => {
+    setPage(1);
+  }, [query, categoryFilter, sortKey]);
+
   if (loading && !products.length) return <LoadingPanel label="Loading product management..." />;
   if (!loading && error && !products.length) {
     return <PageErrorState title="Failed to load products" message={error} onRetry={onRetry} />;
   }
+
   function beginEdit(product) {
     setEditingProduct(product);
     setProductForm({
@@ -1761,18 +1915,45 @@ function AdminProductsPage({
           }))
         : DEFAULT_PRODUCT_FORM.variants,
     });
+    setShowEditor(true);
   }
+
+  function beginCreate() {
+    setEditingProduct(null);
+    setProductForm(DEFAULT_PRODUCT_FORM);
+    setShowEditor(true);
+  }
+
   return (
     <div className="admin-grid">
       <section className="panel span-2">
         <div className="section-title">
           <h3>Product Management</h3>
-          <span>{products.length} visible rows</span>
+          <div className="quick-actions">
+            <span>{filteredProducts.length} visible rows</span>
+            <button onClick={beginCreate}>Add Product</button>
+            <button className="ghost-button" onClick={() => downloadCsv("products.csv", filteredProducts, ["id", "name", "category_name", "price", "stock_quantity", "brand"])}>Export CSV</button>
+          </div>
+        </div>
+        <div className="admin-toolbar">
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Filter by name, brand, category" />
+          <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
+            <option value="">All categories</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>{category.name}</option>
+            ))}
+          </select>
+          <select value={sortKey} onChange={(event) => setSortKey(event.target.value)}>
+            <option value="updated">Sort by name</option>
+            <option value="price">Sort by price</option>
+            <option value="stock">Sort by stock</option>
+          </select>
         </div>
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
+                <th>Image</th>
                 <th>Name</th>
                 <th>Category</th>
                 <th>Price</th>
@@ -1782,11 +1963,22 @@ function AdminProductsPage({
               </tr>
             </thead>
             <tbody>
-              {products.map((product) => (
+              {pagedProducts.map((product) => (
                 <tr key={product.id}>
+                  <td>
+                    <ProductImage
+                      src={resolveProductImage(product)}
+                      fallbackKey={product.category_name}
+                      alt={product.name}
+                      productId={product.id}
+                      className="product-image cart-thumb-image"
+                      containerClassName="cart-thumb-shell"
+                      showLabel={false}
+                    />
+                  </td>
                   <td>{product.name}</td>
                   <td>{product.category_name}</td>
-                  <td>CNY {Number(product.price).toFixed(2)}</td>
+                  <td>{formatCurrency(product.price)}</td>
                   <td>{product.stock_quantity}</td>
                   <td>{product.brand}</td>
                   <td><button className="ghost-button" onClick={() => beginEdit(product)}>Edit</button></td>
@@ -1795,42 +1987,12 @@ function AdminProductsPage({
             </tbody>
           </table>
         </div>
+        <div className="pagination-bar inline-pagination">
+          <button className="ghost-button" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>Previous</button>
+          <span>Page {page} / {pageCount}</span>
+          <button className="ghost-button" disabled={page >= pageCount} onClick={() => setPage((current) => current + 1)}>Next</button>
+        </div>
       </section>
-      <form className="panel" onSubmit={onSaveProduct}>
-        <div className="section-title">
-          <h3>{editingProduct ? "Edit Product" : "Add Product"}</h3>
-          {editingProduct ? <button type="button" className="ghost-button" onClick={() => { setEditingProduct(null); setProductForm(DEFAULT_PRODUCT_FORM); }}>Reset</button> : null}
-        </div>
-        <div className="stack-list">
-          <select value={productForm.category_id} onChange={(event) => setProductForm((current) => ({ ...current, category_id: event.target.value }))}>
-            <option value="">Select category</option>
-            {categories.map((category) => (
-              <option key={category.id} value={category.id}>{category.name}</option>
-            ))}
-          </select>
-          <input value={productForm.name} onChange={(event) => setProductForm((current) => ({ ...current, name: event.target.value }))} placeholder="Product name" />
-          <input value={productForm.brand} onChange={(event) => setProductForm((current) => ({ ...current, brand: event.target.value }))} placeholder="Brand" />
-          <textarea value={productForm.description} onChange={(event) => setProductForm((current) => ({ ...current, description: event.target.value }))} placeholder="Description" />
-          <input value={productForm.price} onChange={(event) => setProductForm((current) => ({ ...current, price: event.target.value }))} placeholder="Price" />
-          <input value={productForm.stock_quantity} onChange={(event) => setProductForm((current) => ({ ...current, stock_quantity: event.target.value }))} placeholder="Stock" />
-          <input value={productForm.tags} onChange={(event) => setProductForm((current) => ({ ...current, tags: event.target.value }))} placeholder="Tags" />
-          <input value={productForm.image_url} onChange={(event) => setProductForm((current) => ({ ...current, image_url: event.target.value }))} placeholder="Image URL" />
-          <div className="variant-table">
-            {productForm.variants.map((variant, index) => (
-              <div className="variant-row" key={`${index + 1}`}>
-                <input value={variant.sku} onChange={(event) => updateVariant(setProductForm, index, "sku", event.target.value)} placeholder="SKU" />
-                <input value={variant.color} onChange={(event) => updateVariant(setProductForm, index, "color", event.target.value)} placeholder="Color" />
-                <input value={variant.size} onChange={(event) => updateVariant(setProductForm, index, "size", event.target.value)} placeholder="Size" />
-                <input value={variant.stock_quantity} onChange={(event) => updateVariant(setProductForm, index, "stock_quantity", event.target.value)} placeholder="Stock" />
-              </div>
-            ))}
-            <button type="button" className="ghost-button" onClick={() => setProductForm((current) => ({ ...current, variants: [...current.variants, { sku: "", color: "", size: "", stock_quantity: "", image_url: "" }] }))}>
-              Add Variant
-            </button>
-          </div>
-          <button type="submit">{editingProduct ? "Update Product" : "Create Product"}</button>
-        </div>
-      </form>
       <form className="panel" onSubmit={onSaveCategory}>
         <div className="section-title">
           <h3>Create Category</h3>
@@ -1848,22 +2010,96 @@ function AdminProductsPage({
           <button type="submit">Save Category</button>
         </div>
       </form>
+      {showEditor ? (
+        <Modal title={editingProduct ? "Edit Product" : "Add Product"} onClose={() => { setShowEditor(false); setEditingProduct(null); }}>
+          <form className="stack-list" onSubmit={async (event) => { await onSaveProduct(event); setShowEditor(false); }}>
+            <select value={productForm.category_id} onChange={(event) => setProductForm((current) => ({ ...current, category_id: event.target.value }))}>
+              <option value="">Select category</option>
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>{category.name}</option>
+              ))}
+            </select>
+            <input value={productForm.name} onChange={(event) => setProductForm((current) => ({ ...current, name: event.target.value }))} placeholder="Product name" />
+            <input value={productForm.brand} onChange={(event) => setProductForm((current) => ({ ...current, brand: event.target.value }))} placeholder="Brand" />
+            <textarea value={productForm.description} onChange={(event) => setProductForm((current) => ({ ...current, description: event.target.value }))} placeholder="Description" />
+            <div className="form-grid">
+              <input value={productForm.price} onChange={(event) => setProductForm((current) => ({ ...current, price: event.target.value }))} placeholder="Price" />
+              <input value={productForm.stock_quantity} onChange={(event) => setProductForm((current) => ({ ...current, stock_quantity: event.target.value }))} placeholder="Stock" />
+            </div>
+            <input value={productForm.tags} onChange={(event) => setProductForm((current) => ({ ...current, tags: event.target.value }))} placeholder="Tags (comma separated)" />
+            <input value={productForm.image_url} onChange={(event) => setProductForm((current) => ({ ...current, image_url: event.target.value }))} placeholder="Image URL / mock upload" />
+            <div className="variant-table">
+              {productForm.variants.map((variant, index) => (
+                <div className="variant-row" key={`${index + 1}`}>
+                  <input value={variant.sku} onChange={(event) => updateVariant(setProductForm, index, "sku", event.target.value)} placeholder="SKU" />
+                  <input value={variant.color} onChange={(event) => updateVariant(setProductForm, index, "color", event.target.value)} placeholder="Color" />
+                  <input value={variant.size} onChange={(event) => updateVariant(setProductForm, index, "size", event.target.value)} placeholder="Size" />
+                  <input value={variant.stock_quantity} onChange={(event) => updateVariant(setProductForm, index, "stock_quantity", event.target.value)} placeholder="Stock" />
+                </div>
+              ))}
+            </div>
+            <div className="quick-actions">
+              <button type="button" className="ghost-button" onClick={() => setProductForm((current) => ({ ...current, variants: [...current.variants, { sku: "", color: "", size: "", stock_quantity: "", image_url: "" }] }))}>
+                Add Variant
+              </button>
+              <button type="submit">{editingProduct ? "Update Product" : "Create Product"}</button>
+            </div>
+          </form>
+        </Modal>
+      ) : null}
     </div>
   );
 }
 
 function AdminOrdersPage({ orders, stockouts, loading, error, onRetry }) {
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [statusFilter, setStatusFilter] = useState("");
+  const [amountFilter, setAmountFilter] = useState("");
+  const [bulkStatus, setBulkStatus] = useState("processing");
+  const filteredOrders = useMemo(
+    () =>
+      orders.filter((order) => {
+        const matchesStatus = !statusFilter || order.status === statusFilter;
+        const matchesAmount = !amountFilter || Number(order.total_amount) >= Number(amountFilter);
+        return matchesStatus && matchesAmount;
+      }),
+    [orders, statusFilter, amountFilter]
+  );
   if (loading && !orders.length) return <LoadingPanel label="Loading orders..." />;
   if (!loading && error && !orders.length) {
     return <PageErrorState title="Failed to load orders" message={error} onRetry={onRetry} />;
   }
   return (
     <div className="admin-grid">
+      <section className="panel">
+        <div className="section-title">
+          <h3>Order Filters</h3>
+          <span>Desktop-optimized controls</span>
+        </div>
+        <div className="stack-list">
+          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+            <option value="">All statuses</option>
+            <option value="paid">Paid</option>
+            <option value="processing">Processing</option>
+            <option value="shipped">Shipped</option>
+            <option value="delivered">Delivered</option>
+            <option value="completed">Completed</option>
+          </select>
+          <input value={amountFilter} onChange={(event) => setAmountFilter(event.target.value)} placeholder="Minimum amount" />
+          <div className="quick-actions">
+            <select value={bulkStatus} onChange={(event) => setBulkStatus(event.target.value)}>
+              <option value="processing">Mark processing</option>
+              <option value="shipped">Mark shipped</option>
+              <option value="completed">Mark completed</option>
+            </select>
+            <button type="button" className="ghost-button" onClick={() => window.alert(`Demo only: would apply "${bulkStatus}" to selected orders.`)}>Bulk Action</button>
+          </div>
+        </div>
+      </section>
       <section className="panel span-2">
         <div className="section-title">
           <h3>Order Management</h3>
-          <span>{orders.length} orders</span>
+          <span>{filteredOrders.length} orders</span>
         </div>
         <div className="table-wrap">
           <table>
@@ -1877,12 +2113,12 @@ function AdminOrdersPage({ orders, stockouts, loading, error, onRetry }) {
               </tr>
             </thead>
             <tbody>
-              {orders.map((order) => (
+              {filteredOrders.map((order) => (
                 <tr key={order.id} onClick={() => setSelectedOrder(order)}>
                   <td>#{order.id}</td>
                   <td>{order.customer.username}</td>
-                  <td>{order.status}</td>
-                  <td>CNY {order.total_amount.toFixed(2)}</td>
+                  <td><span className={`status-pill ${getStatusTone(order.status)}`}>{order.status}</span></td>
+                  <td>{formatCurrency(order.total_amount)}</td>
                   <td>{new Date(order.created_at).toLocaleString()}</td>
                 </tr>
               ))}
@@ -1907,15 +2143,39 @@ function AdminOrdersPage({ orders, stockouts, loading, error, onRetry }) {
       {selectedOrder ? (
         <Modal title={`Order #${selectedOrder.id}`} onClose={() => setSelectedOrder(null)}>
           <div className="stack-list">
-            <div className="list-row"><strong>Customer</strong><span>{selectedOrder.customer.username}</span></div>
+            <div className="list-row"><strong>Customer</strong><span>{selectedOrder.customer.username} / {selectedOrder.customer.email}</span></div>
             <div className="list-row"><strong>Address</strong><span>{selectedOrder.shipping_address}</span></div>
             <div className="list-row"><strong>Payment</strong><span>{selectedOrder.payment.method}</span></div>
+            <div className="list-row"><strong>Total</strong><span>{formatCurrency(selectedOrder.total_amount)}</span></div>
             {selectedOrder.items.map((item) => (
               <div key={`${selectedOrder.id}-${item.product_id}`} className="list-row">
-                <span>{item.product_name}</span>
+                <div className="list-row-media">
+                  <ProductImage
+                    src={item.thumbnail_url || item.image_url}
+                    fallbackKey={item.category_name}
+                    alt={item.product_name}
+                    productId={item.product_id}
+                    className="product-image cart-thumb-image"
+                    containerClassName="cart-thumb-shell"
+                    showLabel={false}
+                  />
+                  <span>{item.product_name}</span>
+                </div>
                 <strong>{item.quantity}</strong>
               </div>
             ))}
+            <div className="section-title compact"><h4>Timeline</h4></div>
+            {(selectedOrder.timeline || []).map((step) => (
+              <div key={`${selectedOrder.id}-${step.status}-${step.created_at}`} className="timeline-step">
+                <strong>{step.status}</strong>
+                <p>{step.note}</p>
+                <span>{new Date(step.created_at).toLocaleString()}</span>
+              </div>
+            ))}
+            <div className="quick-actions">
+              <button type="button">Approve</button>
+              <button type="button" className="ghost-button">Message Customer</button>
+            </div>
           </div>
         </Modal>
       ) : null}
@@ -1924,6 +2184,11 @@ function AdminOrdersPage({ orders, stockouts, loading, error, onRetry }) {
 }
 
 function AdminUsersPage({ users, selectedUser, suspicious, onOpenUser, loading, error, onRetry }) {
+  const [query, setQuery] = useState("");
+  const filteredUsers = useMemo(
+    () => users.filter((user) => `${user.username} ${user.email} ${user.rfm_segment}`.toLowerCase().includes(query.toLowerCase())),
+    [users, query]
+  );
   if (loading && !users.length) return <LoadingPanel label="Loading users..." />;
   if (!loading && error && !users.length) {
     return <PageErrorState title="Failed to load users" message={error} onRetry={onRetry} />;
@@ -1933,7 +2198,10 @@ function AdminUsersPage({ users, selectedUser, suspicious, onOpenUser, loading, 
       <section className="panel span-2">
         <div className="section-title">
           <h3>User Management</h3>
-          <span>{users.length} customers</span>
+          <span>{filteredUsers.length} customers</span>
+        </div>
+        <div className="admin-toolbar">
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search by user, email, RFM segment" />
         </div>
         <div className="table-wrap">
           <table>
@@ -1947,12 +2215,12 @@ function AdminUsersPage({ users, selectedUser, suspicious, onOpenUser, loading, 
               </tr>
             </thead>
             <tbody>
-              {users.map((user) => (
+              {filteredUsers.map((user) => (
                 <tr key={user.id} onClick={() => onOpenUser(user.id)}>
                   <td>{user.username}</td>
                   <td>{user.membership_tier}</td>
                   <td><span className="segment-badge">{user.rfm_segment}</span></td>
-                  <td>CNY {Number(user.ltv_prediction).toFixed(0)}</td>
+                  <td>{formatCurrency(user.ltv_prediction)}</td>
                   <td>{user.order_count}</td>
                 </tr>
               ))}
@@ -1982,6 +2250,8 @@ function AdminUsersPage({ users, selectedUser, suspicious, onOpenUser, loading, 
           <div className="stack-list">
             <div className="list-row"><strong>Email</strong><span>{selectedUser.email}</span></div>
             <div className="list-row"><strong>Tier</strong><span>{selectedUser.membership_tier}</span></div>
+            <div className="list-row"><strong>Region</strong><span>{selectedUser.province} / {selectedUser.city}</span></div>
+            <div className="list-row"><strong>Orders</strong><span>{selectedUser.order_count}</span></div>
             <div className="section-title compact"><h4>Purchase History</h4></div>
             {selectedUser.purchase_history.map((order) => (
               <div className="list-row" key={order.id}>
@@ -1989,7 +2259,7 @@ function AdminUsersPage({ users, selectedUser, suspicious, onOpenUser, loading, 
                   <strong>Order #{order.id}</strong>
                   <p>{order.items.join(", ")}</p>
                 </div>
-                <span>CNY {order.total_amount.toFixed(2)}</span>
+                <span>{formatCurrency(order.total_amount)}</span>
               </div>
             ))}
             <div className="section-title compact"><h4>Activity Log</h4></div>
@@ -2121,12 +2391,12 @@ function StarRating({ value = 0 }) {
 function ProductImage({ src, fallbackKey, alt, productId, className = "", containerClassName = "", showLabel = true }) {
   const categoryFallbackSrc = `https://picsum.photos/seed/fallback${productId || categoryImageSlug(fallbackKey)}/400/400`;
   const [currentSrc, setCurrentSrc] = useState(src || categoryFallbackSrc);
-  const [loading, setLoading] = useState(Boolean(src));
+  const [loading, setLoading] = useState(Boolean(src || categoryFallbackSrc));
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     setCurrentSrc(src || categoryFallbackSrc);
-    setLoading(Boolean(src));
+    setLoading(Boolean(src || categoryFallbackSrc));
     setFailed(false);
   }, [src, categoryFallbackSrc]);
 
@@ -2414,6 +2684,31 @@ function ForecastLineChart({ data }) {
   );
 }
 
+function TopProductsBarChart({ data }) {
+  return (
+    <ChartCanvas
+      dark
+      option={{
+        color: ["#3b82f6"],
+        grid: { left: 56, right: 16, top: 16, bottom: 48 },
+        tooltip: { trigger: "axis" },
+        xAxis: {
+          type: "category",
+          data: data.map((item) => item.label),
+          axisLabel: { color: "rgba(148,163,184,0.8)", rotate: 20 },
+          axisLine: { lineStyle: { color: "rgba(148,163,184,0.2)" } },
+        },
+        yAxis: {
+          type: "value",
+          axisLabel: { color: "rgba(148,163,184,0.8)" },
+          splitLine: { lineStyle: { color: "rgba(148,163,184,0.12)" } },
+        },
+        series: [{ type: "bar", data: data.map((item) => item.value), itemStyle: { borderRadius: 8 } }],
+      }}
+    />
+  );
+}
+
 function TickerList({ orders }) {
   return (
     <div className="ticker-list">
@@ -2531,6 +2826,36 @@ function generateCaptchaSeed() {
   const first = Math.floor(Math.random() * 8) + 1;
   const second = Math.floor(Math.random() * 8) + 1;
   return { equation: `${first} + ${second} = ?`, answer: first + second };
+}
+
+function formatCurrency(value) {
+  return `CNY ${Number(value || 0).toFixed(2)}`;
+}
+
+function getStatusTone(status) {
+  if (["completed", "delivered", "paid"].includes(String(status))) return "success";
+  if (["processing", "shipped"].includes(String(status))) return "warning";
+  return "danger";
+}
+
+function downloadCsv(filename, rows, columns) {
+  const header = columns.join(",");
+  const body = rows.map((row) => columns.map((column) => escapeCsvValue(row[column])).join(",")).join("\n");
+  const blob = new Blob([`${header}\n${body}`], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function escapeCsvValue(value) {
+  const text = String(value ?? "");
+  if (/[",\n]/.test(text)) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+  return text;
 }
 
 function toggleFullscreen() {

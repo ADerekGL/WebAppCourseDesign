@@ -156,12 +156,16 @@ def get_user_detail(
         "membership_tier": account.membership_tier.value,
         "province": account.province,
         "city": account.city,
+        "created_at": account.created_at.isoformat(),
+        "order_count": len(account.orders),
+        "last_login_at": account.last_login_at.isoformat() if account.last_login_at else None,
         "purchase_history": [
             {
                 "id": order.id,
                 "status": order.status.value,
                 "total_amount": order.total_amount,
                 "created_at": order.created_at.isoformat(),
+                "shipping_address": order.shipping_address,
                 "items": [item.product.name for item in order.items],
             }
             for order in account.orders[:12]

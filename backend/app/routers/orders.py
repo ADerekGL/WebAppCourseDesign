@@ -220,7 +220,13 @@ def list_orders(
 ) -> list[dict]:
     query = (
         db.query(Order)
-        .options(joinedload(Order.customer), joinedload(Order.items).joinedload(OrderItem.product), joinedload(Order.payments))
+        .options(
+            joinedload(Order.customer),
+            joinedload(Order.items).joinedload(OrderItem.product),
+            joinedload(Order.payments),
+            joinedload(Order.timeline),
+            joinedload(Order.shipping_updates),
+        )
     )
     if status_filter:
         query = query.filter(Order.status == status_filter)
@@ -240,6 +246,24 @@ def list_orders(
             "total_amount": order.total_amount,
             "created_at": order.created_at.isoformat(),
             "shipping_address": order.shipping_address,
+            "timeline": [
+                {
+                    "status": entry.status.value,
+                    "operator_account": entry.operator_account,
+                    "note": entry.note,
+                    "created_at": entry.created_at.isoformat(),
+                }
+                for entry in order.timeline
+            ],
+            "shipping_updates": [
+                {
+                    "status_label": entry.status_label,
+                    "location": entry.location,
+                    "note": entry.note,
+                    "created_at": entry.created_at.isoformat(),
+                }
+                for entry in order.shipping_updates
+            ],
             "items": [
                 {
                     "product_id": item.product_id,
