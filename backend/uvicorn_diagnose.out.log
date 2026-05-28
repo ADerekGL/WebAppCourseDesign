@@ -1,0 +1,587 @@
+['GET', 'HEAD'] /openapi.json
+['GET', 'HEAD'] /docs
+['GET', 'HEAD'] /docs/oauth2-redirect
+['GET', 'HEAD'] /redoc
+['POST'] /auth/register
+['POST'] /auth/login
+['POST'] /auth/password-reset
+['GET'] /products
+['GET'] /products/categories
+['POST'] /products/categories
+['DELETE'] /products/categories/{category_id}
+['POST'] /products
+['PATCH'] /products/{product_id}
+['POST'] /products/{product_id}/browse
+['POST'] /products/{product_id}/reviews
+['GET'] /products/{product_id}/reviews
+['GET'] /products/{product_id}
+['POST'] /orders/checkout
+['GET'] /orders/history
+['GET'] /orders
+['GET'] /analytics/dashboard
+['GET'] /analytics/dashboard/war-room
+['GET'] /analytics/war-room
+['GET'] /analytics/test-alive
+['GET'] /analytics/forecast
+['GET'] /analytics/rfm
+['GET'] /analytics/cohorts
+['GET'] /analytics/funnel
+['GET'] /analytics/journeys
+['GET'] /analytics/ltv
+['GET'] /analytics/category-performance
+['GET'] /analytics/geography
+['GET'] /analytics/inventory-alerts
+['GET'] /analytics/stockout-predictions
+['GET'] /analytics/churn-predictions
+['GET'] /analytics/recommendation-metrics
+['GET'] /analytics/recommendations
+['POST'] /analytics/jobs/daily-stats
+['POST'] /analytics/jobs/hot-searches
+['GET'] /analytics/logs
+['GET'] /admin/sales-accounts
+['POST'] /admin/sales-accounts
+['POST'] /admin/sales-accounts/{user_id}/reset-password
+['DELETE'] /admin/sales-accounts/{user_id}
+['GET'] /admin/performance
+['GET'] /admin/users
+['GET'] /admin/users/{user_id}
+['GET'] /admin/summary
+['GET'] /admin/suspicious-activities
+['GET'] /api/recommendations/personalized
+['GET'] /api/recommendations/similar/{product_id}
+['GET'] /api/recommendations/trending
+['GET'] /api/recommendations/frequently-bought-together/{product_id}
+['GET'] /profile
+['POST'] /profile/addresses
+['PATCH'] /profile/addresses/{address_id}
+['DELETE'] /profile/addresses/{address_id}
+['GET'] /profile/browsing-history
+['GET'] /profile/wishlist
+['GET'] /search/hot-trends
+['GET'] /search/banners
+['GET'] /search
+['GET'] /health
+INFO:     127.0.0.1:43275 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43276 - "GET /analytics/test-alive HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43277 - "GET /analytics/war-room HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:24964 - "GET /analytics/war-room HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:24965 - "POST /auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32478 - "POST /auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32478 - "GET /analytics/war-room HTTP/1.1" 200 OK
+INFO:     127.0.0.1:23847 - "POST /auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:23847 - "GET /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:23847 - "GET /analytics/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:23847 - "GET /orders?limit=3&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47472 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47473 - "GET /analytics/test-alive HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40324 - "POST /auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40324 - "GET /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40325 - "POST /auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40324 - "GET /analytics/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40325 - "GET /analytics/war-room HTTP/1.1" 200 OK
+INFO:     127.0.0.1:5116 - "OPTIONS /search/banners HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57241 - "OPTIONS /products/categories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43610 - "OPTIONS /api/recommendations/trending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49668 - "OPTIONS /products?sort_by=updated_at HTTP/1.1" 200 OK
+INFO:     127.0.0.1:5116 - "OPTIONS /analytics/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57241 - "OPTIONS /analytics/war-room HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49668 - "OPTIONS /analytics/geography HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56889 - "OPTIONS /analytics/category-performance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56889 - "OPTIONS /analytics/cohorts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49668 - "OPTIONS /analytics/rfm HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49668 - "OPTIONS /analytics/forecast?days=7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49668 - "OPTIONS /orders?limit=20&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49668 - "OPTIONS /analytics/stockout-predictions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48137 - "GET /search/banners HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43610 - "GET /products/categories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49668 - "OPTIONS /analytics/inventory-alerts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43610 - "OPTIONS /analytics/category-performance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49668 - "OPTIONS /analytics/geography HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43610 - "OPTIONS /analytics/rfm HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49668 - "OPTIONS /analytics/cohorts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43610 - "OPTIONS /analytics/forecast?days=7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43610 - "OPTIONS /orders?limit=20&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43610 - "OPTIONS /analytics/stockout-predictions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43610 - "OPTIONS /analytics/inventory-alerts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:5116 - "GET /api/recommendations/trending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:5116 - "GET /analytics/cohorts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57241 - "GET /products?sort_by=updated_at HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49668 - "GET /analytics/geography HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3239 - "GET /orders?limit=20&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43610 - "GET /analytics/category-performance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49055 - "GET /search/banners HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49055 - "GET /products/categories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3239 - "GET /analytics/stockout-predictions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3239 - "GET /api/recommendations/trending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3239 - "GET /analytics/cohorts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3239 - "OPTIONS /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3239 - "OPTIONS /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3239 - "OPTIONS /admin/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3239 - "OPTIONS /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3239 - "OPTIONS /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3239 - "OPTIONS /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3239 - "OPTIONS /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3239 - "OPTIONS /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3239 - "OPTIONS /admin/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3239 - "OPTIONS /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3239 - "OPTIONS /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3239 - "OPTIONS /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3239 - "OPTIONS /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3239 - "OPTIONS /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3239 - "OPTIONS /admin/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3239 - "OPTIONS /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3239 - "OPTIONS /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3239 - "OPTIONS /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3239 - "OPTIONS /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3239 - "OPTIONS /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3239 - "OPTIONS /admin/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3239 - "OPTIONS /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3239 - "OPTIONS /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3239 - "OPTIONS /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3239 - "OPTIONS /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3239 - "OPTIONS /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3239 - "OPTIONS /admin/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3239 - "OPTIONS /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3239 - "OPTIONS /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3239 - "OPTIONS /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49055 - "GET /analytics/inventory-alerts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49055 - "OPTIONS /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49055 - "OPTIONS /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49055 - "OPTIONS /admin/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49055 - "OPTIONS /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49055 - "OPTIONS /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49055 - "OPTIONS /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49055 - "OPTIONS /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49055 - "OPTIONS /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49055 - "OPTIONS /admin/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49055 - "OPTIONS /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49055 - "OPTIONS /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49055 - "OPTIONS /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56889 - "GET /analytics/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33210 - "GET /orders?limit=20&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3239 - "GET /products?sort_by=updated_at HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3239 - "GET /search/banners HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3239 - "GET /products/categories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:5116 - "GET /analytics/rfm HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3239 - "GET /analytics/stockout-predictions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36707 - "GET /analytics/forecast?days=7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49055 - "GET /analytics/geography HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33210 - "GET /analytics/category-performance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33210 - "GET /analytics/inventory-alerts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:26940 - "GET /analytics/rfm HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33210 - "GET /api/recommendations/trending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33210 - "GET /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33210 - "GET /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:26940 - "GET /analytics/cohorts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:26940 - "GET /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42772 - "OPTIONS /auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:22075 - "GET /search/banners HTTP/1.1" 200 OK
+INFO:     127.0.0.1:22075 - "GET /search/banners HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14870 - "GET /products/categories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:22075 - "GET /products/categories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:2347 - "GET /api/recommendations/trending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:29058 - "OPTIONS /search/banners HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3526 - "OPTIONS /products/categories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1365 - "OPTIONS /products?sort_by=updated_at HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3969 - "OPTIONS /api/recommendations/trending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:29196 - "OPTIONS /products/categories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:21390 - "OPTIONS /products?sort_by=updated_at HTTP/1.1" 200 OK
+INFO:     127.0.0.1:29058 - "GET /search/banners HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3526 - "GET /products/categories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:29058 - "GET /search/banners HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3526 - "GET /products/categories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1365 - "GET /api/recommendations/trending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3969 - "GET /products?sort_by=updated_at HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1365 - "GET /api/recommendations/trending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3526 - "GET /products?sort_by=updated_at HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3526 - "GET /search/banners HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1365 - "GET /products/categories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3526 - "GET /search/banners HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1365 - "GET /products/categories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:29058 - "GET /api/recommendations/trending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3969 - "GET /products?sort_by=updated_at HTTP/1.1" 200 OK
+INFO:     127.0.0.1:29058 - "GET /api/recommendations/trending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1365 - "GET /products?sort_by=updated_at HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1365 - "OPTIONS /auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:29058 - "POST /auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3659 - "OPTIONS /api/recommendations/personalized HTTP/1.1" 200 OK
+INFO:     127.0.0.1:29058 - "GET /search/banners HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1365 - "GET /products/categories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:3659 - "GET /api/recommendations/personalized HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6797 - "GET /products?sort_by=updated_at HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45298 - "GET /api/recommendations/trending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45298 - "GET /api/recommendations/personalized HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45298 - "OPTIONS /search?sort=relevance&page=1&page_size=12 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45298 - "GET /search?sort=relevance&page=1&page_size=12 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45298 - "OPTIONS /search/hot-trends HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45298 - "GET /search/hot-trends HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38257 - "OPTIONS /products/172 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1404 - "OPTIONS /products/172/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:11624 - "OPTIONS /api/recommendations/similar/172 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:19016 - "OPTIONS /api/recommendations/frequently-bought-together/172 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40447 - "OPTIONS /products/172/browse?dwell_seconds=52 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1404 - "GET /products/172/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38257 - "GET /products/172 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40447 - "POST /products/172/browse?dwell_seconds=52 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:11624 - "GET /api/recommendations/similar/172 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:19016 - "GET /api/recommendations/frequently-bought-together/172 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53051 - "GET /api/recommendations/personalized HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53051 - "GET /search/banners HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44584 - "GET /products/categories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:25225 - "GET /api/recommendations/trending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:11611 - "GET /products?sort_by=updated_at HTTP/1.1" 200 OK
+INFO:     127.0.0.1:13907 - "POST /auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:29018 - "OPTIONS /analytics/war-room HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49959 - "OPTIONS /analytics/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:18305 - "OPTIONS /analytics/category-performance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49959 - "OPTIONS /analytics/geography HTTP/1.1" 200 OK
+INFO:     127.0.0.1:18305 - "OPTIONS /analytics/rfm HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49959 - "OPTIONS /analytics/cohorts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:18305 - "OPTIONS /analytics/forecast?days=7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:13907 - "GET /search/banners HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49959 - "OPTIONS /orders?limit=20&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:18305 - "OPTIONS /analytics/stockout-predictions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:13907 - "OPTIONS /analytics/inventory-alerts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:30756 - "GET /products/categories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:29018 - "GET /api/recommendations/trending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:2882 - "GET /products?sort_by=updated_at HTTP/1.1" 200 OK
+INFO:     127.0.0.1:30756 - "GET /analytics/geography HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58139 - "GET /analytics/cohorts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50749 - "GET /orders?limit=20&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:29018 - "GET /analytics/rfm HTTP/1.1" 200 OK
+INFO:     127.0.0.1:13907 - "GET /analytics/category-performance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "OPTIONS /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "OPTIONS /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "OPTIONS /admin/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "OPTIONS /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "OPTIONS /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "OPTIONS /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "OPTIONS /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "OPTIONS /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "OPTIONS /admin/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "OPTIONS /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "OPTIONS /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "OPTIONS /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "OPTIONS /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "OPTIONS /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "OPTIONS /admin/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "OPTIONS /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "OPTIONS /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "OPTIONS /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "OPTIONS /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "OPTIONS /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "OPTIONS /admin/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "OPTIONS /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "OPTIONS /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "OPTIONS /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "OPTIONS /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "OPTIONS /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "OPTIONS /admin/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "OPTIONS /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "OPTIONS /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "OPTIONS /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "OPTIONS /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "OPTIONS /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "OPTIONS /admin/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "OPTIONS /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "OPTIONS /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "OPTIONS /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50749 - "GET /analytics/stockout-predictions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50749 - "OPTIONS /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50749 - "OPTIONS /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50749 - "OPTIONS /admin/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50749 - "OPTIONS /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50749 - "OPTIONS /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50749 - "OPTIONS /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50749 - "OPTIONS /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50749 - "OPTIONS /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50749 - "OPTIONS /admin/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50749 - "OPTIONS /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50749 - "OPTIONS /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50749 - "OPTIONS /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:2882 - "GET /analytics/forecast?days=7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14900 - "OPTIONS /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14900 - "OPTIONS /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14900 - "OPTIONS /admin/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14900 - "OPTIONS /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14900 - "OPTIONS /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14900 - "OPTIONS /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14900 - "GET /orders?limit=20&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14900 - "OPTIONS /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14900 - "OPTIONS /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14900 - "OPTIONS /admin/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14900 - "OPTIONS /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14900 - "OPTIONS /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14900 - "OPTIONS /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50749 - "GET /analytics/cohorts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50749 - "OPTIONS /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50749 - "OPTIONS /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50749 - "OPTIONS /admin/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50749 - "OPTIONS /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50749 - "OPTIONS /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50749 - "OPTIONS /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:18267 - "GET /analytics/inventory-alerts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:18267 - "OPTIONS /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:18267 - "OPTIONS /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:18267 - "OPTIONS /admin/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:18267 - "OPTIONS /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:18267 - "OPTIONS /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:18267 - "OPTIONS /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:18267 - "GET /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:18267 - "GET /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:18305 - "GET /analytics/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6401 - "GET /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6401 - "GET /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6401 - "GET /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6401 - "GET /analytics/stockout-predictions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50749 - "GET /analytics/category-performance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14900 - "GET /analytics/rfm HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50749 - "GET /orders?limit=20&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "GET /analytics/geography HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "GET /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14900 - "GET /analytics/cohorts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "GET /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14900 - "GET /analytics/stockout-predictions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50749 - "GET /analytics/inventory-alerts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14900 - "GET /analytics/stockout-predictions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "GET /analytics/inventory-alerts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14900 - "GET /analytics/stockout-predictions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50749 - "GET /analytics/inventory-alerts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50749 - "GET /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "GET /analytics/inventory-alerts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50749 - "GET /analytics/stockout-predictions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "GET /analytics/inventory-alerts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "GET /analytics/stockout-predictions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6401 - "GET /analytics/forecast?days=7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6401 - "GET /analytics/stockout-predictions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "GET /analytics/inventory-alerts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "GET /analytics/stockout-predictions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6401 - "GET /analytics/inventory-alerts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6401 - "GET /analytics/stockout-predictions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "GET /analytics/inventory-alerts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6401 - "GET /analytics/inventory-alerts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "GET /analytics/stockout-predictions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14900 - "GET /analytics/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:1046 - "GET /analytics/stockout-predictions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:18267 - "GET /admin/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6401 - "GET /analytics/inventory-alerts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38448 - "GET /analytics/stockout-predictions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53032 - "GET /analytics/stockout-predictions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:7887 - "GET /analytics/inventory-alerts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47381 - "GET /analytics/inventory-alerts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47381 - "GET /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47381 - "GET /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47381 - "GET /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38448 - "GET /analytics/inventory-alerts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38448 - "GET /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:7887 - "GET /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:7887 - "GET /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:7887 - "GET /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:7887 - "GET /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38448 - "GET /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38448 - "GET /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38448 - "GET /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38448 - "GET /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38448 - "GET /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38448 - "GET /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53032 - "GET /admin/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53032 - "GET /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47381 - "GET /admin/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:7334 - "GET /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:7334 - "GET /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53032 - "GET /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:7334 - "GET /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:7334 - "GET /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49959 - "GET /analytics/war-room HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46752 - "GET /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46752 - "GET /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46752 - "GET /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:7334 - "GET /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:7887 - "GET /admin/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:7334 - "GET /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:7334 - "GET /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:7334 - "GET /analytics/stockout-predictions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50548 - "GET /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:7334 - "GET /analytics/inventory-alerts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:7334 - "GET /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:7334 - "GET /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50548 - "GET /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50548 - "GET /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50548 - "GET /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50548 - "GET /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50548 - "GET /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50548 - "GET /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38448 - "GET /admin/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47493 - "GET /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47493 - "GET /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47493 - "GET /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47493 - "GET /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44050 - "GET /admin/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:7835 - "GET /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46752 - "GET /admin/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:27184 - "GET /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:7835 - "GET /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:27184 - "GET /analytics/stockout-predictions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:27184 - "GET /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:27184 - "GET /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50749 - "GET /analytics/war-room HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6568 - "GET /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:7835 - "GET /analytics/inventory-alerts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:7835 - "GET /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:7835 - "GET /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:7835 - "GET /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6568 - "GET /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6568 - "GET /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:7334 - "GET /admin/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:12579 - "GET /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50548 - "GET /admin/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6568 - "GET /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47493 - "GET /admin/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6568 - "GET /analytics/category-performance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:12579 - "GET /analytics/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47630 - "GET /analytics/geography HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47630 - "GET /analytics/stockout-predictions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47630 - "GET /analytics/inventory-alerts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51618 - "GET /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51618 - "GET /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:6568 - "GET /analytics/rfm HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45393 - "GET /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:12579 - "GET /analytics/forecast?days=7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:15500 - "GET /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:15500 - "GET /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:15500 - "GET /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:27184 - "GET /admin/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38980 - "GET /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:7835 - "GET /admin/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32481 - "GET /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45393 - "GET /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32481 - "GET /analytics/stockout-predictions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38980 - "GET /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38980 - "GET /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38980 - "GET /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32481 - "GET /analytics/stockout-predictions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32481 - "GET /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45393 - "GET /analytics/inventory-alerts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45393 - "GET /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45393 - "GET /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45393 - "GET /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32481 - "GET /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32481 - "GET /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32481 - "GET /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32481 - "GET /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32481 - "GET /analytics/inventory-alerts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51618 - "GET /admin/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32481 - "GET /analytics/category-performance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32481 - "GET /orders?limit=20&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:15500 - "GET /admin/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38980 - "GET /admin/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:15500 - "GET /analytics/cohorts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51618 - "GET /analytics/rfm HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45393 - "GET /admin/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45393 - "GET /analytics/stockout-predictions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32481 - "GET /analytics/geography HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45393 - "GET /analytics/inventory-alerts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32481 - "GET /analytics/inventory-alerts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51618 - "GET /analytics/forecast?days=7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45393 - "GET /analytics/forecast?days=7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:26339 - "GET /analytics/war-room HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45393 - "GET /analytics/category-performance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:7488 - "GET /analytics/geography HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38980 - "GET /analytics/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4420 - "GET /orders?limit=20&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53021 - "GET /analytics/cohorts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:10039 - "GET /analytics/rfm HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4420 - "GET /analytics/stockout-predictions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4420 - "GET /analytics/category-performance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32481 - "GET /analytics/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4420 - "GET /analytics/geography HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14349 - "GET /analytics/rfm HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4420 - "GET /analytics/cohorts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4420 - "GET /orders?limit=20&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4420 - "GET /analytics/stockout-predictions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4420 - "GET /analytics/inventory-alerts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4420 - "GET /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4420 - "GET /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14349 - "GET /analytics/forecast?days=7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14349 - "GET /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53021 - "GET /analytics/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14349 - "GET /analytics/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14349 - "GET /analytics/category-performance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:15500 - "GET /analytics/war-room HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14349 - "GET /analytics/geography HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14349 - "GET /analytics/cohorts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:5947 - "GET /analytics/rfm HTTP/1.1" 200 OK
+INFO:     127.0.0.1:5947 - "GET /orders?limit=20&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51618 - "GET /analytics/war-room HTTP/1.1" 200 OK
+INFO:     127.0.0.1:5947 - "GET /analytics/stockout-predictions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52054 - "GET /analytics/inventory-alerts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52054 - "GET /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52054 - "GET /analytics/stockout-predictions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14349 - "GET /analytics/forecast?days=7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14349 - "GET /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4420 - "GET /admin/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14349 - "GET /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14349 - "GET /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52054 - "GET /analytics/inventory-alerts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52054 - "GET /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52054 - "GET /analytics/stockout-predictions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52054 - "GET /analytics/inventory-alerts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:10039 - "GET /analytics/war-room HTTP/1.1" 200 OK
+INFO:     127.0.0.1:10039 - "GET /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:5947 - "GET /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:5947 - "GET /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:5947 - "GET /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14349 - "GET /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14349 - "GET /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14349 - "GET /analytics/stockout-predictions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52054 - "GET /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52054 - "GET /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14349 - "GET /analytics/inventory-alerts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52054 - "GET /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52054 - "GET /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53021 - "GET /analytics/war-room HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53021 - "GET /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52054 - "GET /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53021 - "GET /analytics/stockout-predictions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52054 - "GET /analytics/inventory-alerts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52054 - "GET /analytics/category-performance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4420 - "GET /admin/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52054 - "GET /analytics/geography HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52054 - "GET /analytics/cohorts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4420 - "GET /analytics/rfm HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4420 - "GET /orders?limit=20&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4420 - "GET /analytics/stockout-predictions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4420 - "GET /analytics/inventory-alerts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4420 - "GET /search/banners HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4420 - "GET /products/categories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52054 - "GET /analytics/forecast?days=7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52054 - "GET /api/recommendations/trending HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52054 - "GET /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52054 - "GET /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4420 - "GET /products?sort_by=updated_at HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4420 - "GET /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53021 - "GET /analytics/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53021 - "GET /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:5947 - "GET /admin/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53021 - "GET /analytics/stockout-predictions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53021 - "GET /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53021 - "GET /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:5947 - "GET /analytics/inventory-alerts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:5947 - "GET /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14349 - "GET /admin/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14349 - "GET /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14349 - "GET /analytics/stockout-predictions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14349 - "GET /analytics/inventory-alerts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14349 - "GET /admin/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14349 - "GET /orders?limit=50&sort=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4420 - "GET /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4420 - "GET /admin/suspicious-activities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:5947 - "GET /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:5947 - "GET /analytics/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:5947 - "GET /analytics/stockout-predictions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:5947 - "GET /analytics/inventory-alerts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:10039 - "GET /analytics/war-room HTTP/1.1" 200 OK
+INFO:     127.0.0.1:4420 - "GET /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52054 - "GET /admin/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53021 - "GET /admin/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14349 - "GET /admin/users HTTP/1.1" 200 OK
