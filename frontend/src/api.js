@@ -10,14 +10,25 @@ export class ApiError extends Error {
 }
 
 export async function apiFetch(path, options = {}, token) {
-  const response = await fetch(`${API_BASE}${path}`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options.headers || {})
-    },
-    ...options
-  });
+  let response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, {
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(options.headers || {}),
+      },
+      ...options,
+    });
+  } catch (error) {
+    throw new ApiError(
+      typeof navigator !== "undefined" && navigator.onLine === false
+        ? "Network offline. Please reconnect and retry."
+        : "Network request failed",
+      0,
+      { detail: error?.message || "Network request failed" }
+    );
+  }
 
   if (!response.ok) {
     const payload = await response.json().catch(() => ({ detail: "Request failed" }));
@@ -56,7 +67,16 @@ export const api = {
   updateAddress: (id, body, token) => apiFetch(`/profile/addresses/${id}`, { method: "PATCH", body: JSON.stringify(body) }, token),
   deleteAddress: (id, token) => apiFetch(`/profile/addresses/${id}`, { method: "DELETE" }, token),
   dashboard: (token) => apiFetch("/analytics/dashboard", {}, token),
-  warRoom: (token) => apiFetch("/analytics/dashboard/war-room", {}, token),
+  warRoom: async (token) => {
+    try {
+      return await apiFetch("/analytics/war-room", {}, token);
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) {
+        return apiFetch("/analytics/dashboard/war-room", {}, token);
+      }
+      throw error;
+    }
+  },
   categoryPerformance: (token) => apiFetch("/analytics/category-performance", {}, token),
   geography: (token) => apiFetch("/analytics/geography", {}, token),
   rfm: (token) => apiFetch("/analytics/rfm", {}, token),

@@ -41,6 +41,8 @@ SQLITE_COLUMN_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         ("safety_stock", "ALTER TABLE products ADD COLUMN safety_stock INTEGER DEFAULT 10"),
         ("supplier_name", "ALTER TABLE products ADD COLUMN supplier_name VARCHAR(120) DEFAULT ''"),
         ("base_weight", "ALTER TABLE products ADD COLUMN base_weight FLOAT DEFAULT 0"),
+        ("thumbnail_url", "ALTER TABLE products ADD COLUMN thumbnail_url VARCHAR(255)"),
+        ("image_urls", "ALTER TABLE products ADD COLUMN image_urls JSON DEFAULT '[]'"),
         ("gallery_json", "ALTER TABLE products ADD COLUMN gallery_json JSON DEFAULT '[]'"),
         ("tags_json", "ALTER TABLE products ADD COLUMN tags_json JSON DEFAULT '[]'"),
     ],

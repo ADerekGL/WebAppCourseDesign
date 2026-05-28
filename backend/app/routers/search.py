@@ -98,9 +98,13 @@ def search_products(
                 "stock_quantity": product.stock_quantity,
                 "brand": product.brand,
                 "image_url": product.image_url,
+                "thumbnail_url": product.thumbnail_url,
+                "image_urls": product.image_urls or product.gallery_json or ([product.image_url] if product.image_url else []),
                 "category_id": product.category_id,
                 "category_name": product.category.name,
                 "tags_json": product.tags_json or [],
+                "rating_average": round(sum(review.rating for review in product.reviews) / len(product.reviews), 2) if product.reviews else 0,
+                "review_count": len(product.reviews),
             }
             for product in items
         ],

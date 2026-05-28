@@ -1,65 +1,64 @@
-# Test Report
+# 测试报告
 
-## 1. Testing Method
+## 1. 测试方法
 
-Black-box testing was used for:
+采用黑盒测试覆盖以下内容：
 
-- registration and login
-- guest browsing
-- category/product management
-- checkout flow
-- analytics endpoints
-- admin account management
+- 注册与登录
+- 游客浏览
+- 分类/商品管理
+- 结算流程
+- 分析接口
+- 管理员账号管理
 
-## 2. Test Accounts
+## 2. 测试账号
 
-- Customer: `customer_test / password`
-- Sales: `sales_test / password`
-- Admin: `admin_test / password`
+- 客户：`customer_test / password`
+- 销售：`sales_test / password`
+- 管理员：`admin_test / password`
 
-## 3. Functional Test Cases
+## 3. 功能测试用例
 
-| ID | Feature | Input | Expected Result | Status |
+| ID | 功能 | 输入 | 预期结果 | 状态 |
 |---|---|---|---|---|
-| TC-01 | Customer login | `customer_test/password` | JWT returned | Pass |
-| TC-02 | Guest browse | Open catalog | Products visible without login | Pass |
-| TC-03 | Checkout | Valid cart and address | Order created and stock reduced | Pass |
-| TC-04 | Sales create category | Sales token + payload | Category saved | Pass |
-| TC-05 | Admin create sales account | Admin token + payload | Account created | Pass |
-| TC-06 | Recommendations | Customer token | Recommendation list returned | Pass |
-| TC-07 | Dashboard | Sales/Admin token | Analytics payload returned | Pass |
+| TC-01 | 客户登录 | `customer_test/password` | 返回 JWT | 通过 |
+| TC-02 | 游客浏览 | 打开商品目录 | 无需登录即可查看商品 | 通过 |
+| TC-03 | 结算 | 有效购物车和地址 | 创建订单并减少库存 | 通过 |
+| TC-04 | 销售创建分类 | 销售 Token + 请求体 | 分类保存成功 | 通过 |
+| TC-05 | 管理员创建销售账号 | 管理员 Token + 请求体 | 账号创建成功 | 通过 |
+| TC-06 | 推荐接口 | 客户 Token | 返回推荐列表 | 通过 |
+| TC-07 | 仪表盘 | 销售/管理员 Token | 返回分析数据 | 通过 |
 
-## 4. Screenshots
+## 4. 截图
 
-Recommended screenshots to capture after running locally or online:
+建议在本地或线上运行后采集以下截图：
 
-- login and registration panel
-- customer catalog and cart
-- purchase history
-- sales management panel
-- admin performance panel
-- analytics dashboard response
+- 登录与注册面板
+- 客户商品目录与购物车
+- 购买历史
+- 销售管理面板
+- 管理员绩效面板
+- 分析仪表盘响应
 
-Store screenshots in `tests/screenshots/`.
+截图建议存放在 `tests/screenshots/` 目录下。
 
-## 5. Online Deployment Verification
+## 5. 线上部署验证
 
-Deployment verification checklist:
+部署验证清单：
 
-1. Domain resolves correctly.
-2. HTTPS is enabled.
-3. Guest browsing works.
-4. Login succeeds for all three test accounts.
-5. Checkout records appear in order history.
-6. Dashboard loads for sales/admin.
+1. 域名解析正常；
+2. HTTPS 已启用；
+3. 游客浏览可用；
+4. 三类测试账号均可成功登录；
+5. 结算记录可在订单历史中看到；
+6. 销售/管理员可正常打开仪表盘。
 
-## 6. Notes
+## 6. 备注
 
-Backend smoke validation can begin with:
+后端冒烟验证可从以下命令开始：
 
 ```bash
 pytest
 python -m app.seed
 uvicorn app.main:app --reload
 ```
-

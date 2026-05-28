@@ -9,10 +9,11 @@ from .routers import admin, analytics, auth, orders, products, profile, recommen
 
 settings = get_settings()
 app = FastAPI(title=settings.app_name, version="1.0.0")
+cors_origins = sorted(set(settings.backend_cors_origins + ["http://localhost:5173", "http://127.0.0.1:5173"]))
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.backend_cors_origins,
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -33,3 +34,10 @@ app.include_router(search.router)
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok", "app": settings.app_name}
+
+
+@app.on_event("startup")
+async def print_routes() -> None:
+    for route in app.routes:
+        if hasattr(route, "methods"):
+            print(f"{sorted(route.methods)} {route.path}")

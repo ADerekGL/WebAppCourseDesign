@@ -1,53 +1,53 @@
-# Requirements Analysis
+# 需求分析
 
-## Business Scenario
+## 业务场景
 
-Chinese e-commerce competition is driven by fast-moving promotions, fragmented traffic sources, and increasingly personalized shopping expectations. A conventional CRUD storefront does not give operations teams enough visibility into user journeys, stock risk, promotion lift, or recommendation performance. This capstone positions the platform as a compact but realistic monorepo that combines online shopping, operational controls, behavioral event collection, and analytics.
+中国电商竞争高度依赖快速促销、碎片化流量来源以及持续增强的个性化购物预期。传统仅具备 CRUD 功能的商城系统，无法为运营团队提供足够的用户路径可视化、库存风险感知、促销效果评估与推荐效果分析能力。本课程设计将平台定位为一个紧凑但贴近真实业务的单体仓库项目，集成在线购物、运营控制、行为事件采集与数据分析能力。
 
-## Pain Points
+## 痛点分析
 
-| Pain Point | Impact | Proposed Capability |
+| 痛点 | 影响 | 对应能力 |
 | --- | --- | --- |
-| Inventory mismanagement | Stockouts, overstock, delayed replenishment | Variant stock tracking, inventory logs, low-stock alerts, stockout prediction |
-| Weak recommendation conversion | Low basket size and repeat purchase | Hybrid recommendations using collaborative, content, and business-rule strategies |
-| Poor real-time visibility | Slow business reaction to spikes/anomalies | War-room dashboard, daily aggregates, anomaly alerts |
-| Low-value user segmentation | Generic campaigns, poor retention | RFM segmentation, cohort retention, churn prediction, LTV estimation |
-| Incomplete behavior data | Hard to analyze funnel leakage | Browse, cart, login, search, session, and operation logging |
+| 库存管理失衡 | 缺货、积压、补货延迟 | 变体库存跟踪、库存日志、低库存预警、缺货预测 |
+| 推荐转化偏弱 | 客单价低、复购率低 | 基于协同过滤、内容特征和业务规则的混合推荐 |
+| 实时可视化不足 | 无法快速响应流量波动与异常 | 战情室大屏、日聚合统计、异常预警 |
+| 用户分层价值不高 | 营销泛化、留存效果差 | RFM 分层、同期群留存、流失预测、LTV 估计 |
+| 行为数据不完整 | 难以分析漏斗损耗 | 浏览、购物车、登录、搜索、会话与操作日志采集 |
 
-## Architecture Option Comparison
+## 架构方案对比
 
-| Option | Advantages | Drawbacks | Decision |
+| 方案 | 优势 | 劣势 | 结论 |
 | --- | --- | --- | --- |
-| Monolith | Fast development, simple deployment, easy debugging, appropriate for single-developer academic scope | Lower long-term service isolation | Selected |
-| Microservices | Clear service boundaries, independent scaling | Excessive ops overhead for course timeline | Rejected for scope |
-| Serverless | Fast bootstrap, pay-per-use | Harder local simulation for analytics pipelines | Rejected for controllability |
+| 单体架构 | 开发快、部署简单、调试直接、适合单人课程项目 | 长期服务隔离能力较弱 | 采用 |
+| 微服务架构 | 服务边界清晰、可独立扩缩容 | 运维复杂度过高，不适合课程周期 | 因范围原因不采用 |
+| Serverless | 启动快、按量计费 | 本地模拟分析链路较困难 | 因可控性不足不采用 |
 
-## Functional Scope
+## 功能范围
 
-- Customer registration, login, browsing, search, cart, checkout, order history, wishlist, reviews, coupons, recommendations
-- Sales role for catalog, inventory, categories, and operational analytics
-- Admin role for sales account control, monitoring, suspicious activity, and aggregation jobs
-- Big-data-style event capture for login, browse, cart, purchase, search, and operations
-- Analytics outputs for RFM, cohort, funnel, geography, trend, anomaly, stockout, churn, and recommendation metrics
+- 客户端支持注册、登录、浏览、搜索、购物车、结算、订单历史、收藏、评价、优惠券与个性化推荐
+- 销售角色支持商品、库存、分类维护以及运营分析查看
+- 管理员角色支持销售账号控制、监控告警与聚合作业触发
+- 提供面向“大数据”风格的登录、浏览、加购、购买、搜索与操作事件采集
+- 输出 RFM、同期群、转化漏斗、地域分布、趋势、异常、缺货、流失与推荐指标分析
 
-## Technical Specification
+## 技术规格
 
-| Layer | Selection |
+| 层次 | 选型 |
 | --- | --- |
-| Backend | FastAPI + SQLAlchemy 2.0 + Pydantic 2 |
-| Frontend | React + Vite |
-| DB | SQLite local dev, PostgreSQL-ready schema |
-| Cache | Redis-ready configuration |
-| Analytics | Pandas, NumPy, scikit-learn |
-| Visualization | Frontend-ready chart JSON, ECharts planned |
-| Auth | JWT bearer token |
-| Deployment | Docker Compose + Nginx reverse proxy |
+| 后端 | FastAPI + SQLAlchemy 2.0 + Pydantic 2 |
+| 前端 | React + Vite |
+| 数据库 | 本地开发使用 SQLite，模式兼容 PostgreSQL |
+| 缓存 | 预留 Redis 配置 |
+| 分析 | Pandas、NumPy、scikit-learn |
+| 可视化 | 前端图表 JSON 输出，规划接入 ECharts |
+| 鉴权 | JWT Bearer Token |
+| 部署 | Docker Compose + Nginx 反向代理 |
 
-## Four-Week Gantt Plan
+## 四周甘特计划
 
 ```text
-Week 1  [####] Auth stabilization, schema enrichment, seed design
-Week 2  [####] Enhanced catalog/order/user modules, event capture, analytics services
-Week 3  [####] Frontend dashboard, recommendation views, admin tooling
-Week 4  [####] Testing, Docker deployment, documentation, performance tuning
+第 1 周 [####] 鉴权稳定、模式扩展、种子数据设计
+第 2 周 [####] 商品/订单/用户增强模块、事件采集、分析服务
+第 3 周 [####] 前端大屏、推荐视图、管理端工具
+第 4 周 [####] 测试、Docker 部署、文档整理、性能调优
 ```

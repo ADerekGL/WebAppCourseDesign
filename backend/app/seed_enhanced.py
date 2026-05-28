@@ -102,6 +102,18 @@ SEARCH_TERMS = [
     "standing desk",
 ]
 
+CATEGORY_IMAGE_OFFSETS = {
+    "Electronics": 1000,
+    "Clothing": 2000,
+    "Food": 3000,
+    "Books": 4000,
+    "Home": 5000,
+    "Sports": 6000,
+    "Beauty": 7000,
+    "Toys": 8000,
+    "Automotive": 9000,
+}
+
 
 def random_city() -> tuple[str, str]:
     roll = random.random()
@@ -133,6 +145,15 @@ def seasonal_category_bias(month: int) -> dict[str, float]:
     if month in {11, 12, 1, 2}:
         return {"Clothing": 1.5, "Home": 1.2, "Sports": 0.8}
     return {"Electronics": 1.2, "Beauty": 1.1}
+
+
+def get_product_image_urls(product_id: int, category_name: str) -> dict[str, str]:
+    category_seed_offset = CATEGORY_IMAGE_OFFSETS.get(category_name, 0)
+    seed = category_seed_offset + product_id
+    return {
+        "image_url": f"https://picsum.photos/seed/{seed}/800/800",
+        "thumbnail_url": f"https://picsum.photos/seed/{seed}/400/400",
+    }
 
 
 def create_categories(db) -> list[Category]:
@@ -280,6 +301,7 @@ def create_products(db, categories: list[Category], total: int = 240) -> list[Pr
         }.get(category_name, (30, 500))
         price = round(random.uniform(*price_base), 2)
         stock_quantity = random.randint(12, 320)
+        provisional_seed = CATEGORY_IMAGE_OFFSETS.get(category_name, 0) + index + 1
         product = Product(
             category_id=category.id,
             name=f"{brand} {category_name} Item {index + 1}",
@@ -291,14 +313,30 @@ def create_products(db, categories: list[Category], total: int = 240) -> list[Pr
             safety_stock=random.randint(8, 20),
             supplier_name=f"{brand} Supply Chain",
             base_weight=round(random.uniform(0.2, 8.0), 2),
-            image_url=f"https://example.com/products/{index + 1}.jpg",
-            gallery_json=[f"https://example.com/products/{index + 1}-{suffix}.jpg" for suffix in range(1, 4)],
+            image_url=f"https://picsum.photos/seed/{provisional_seed}/800/800",
+            thumbnail_url=f"https://picsum.photos/seed/{provisional_seed}/400/400",
+            image_urls=[f"https://picsum.photos/seed/{provisional_seed + offset}/800/800" for offset in range(3)],
+            gallery_json=[f"https://picsum.photos/seed/{provisional_seed + offset}/800/800" for offset in range(3)],
             tags_json=random.sample(PRODUCT_TAGS, k=random.randint(2, 4)),
             created_at=recent_datetime(),
             updated_at=recent_datetime(),
         )
         db.add(product)
         db.flush()
+        image_payload = get_product_image_urls(product.id, category_name)
+        product.image_url = image_payload["image_url"]
+        product.thumbnail_url = image_payload["thumbnail_url"]
+        if not product.image_url:
+            product.image_url = f"https://picsum.photos/seed/generic{product.id}/800/800"
+        if not product.thumbnail_url:
+            product.thumbnail_url = f"https://picsum.photos/seed/generic{product.id}/400/400"
+        image_urls = [
+            product.image_url,
+            f"https://picsum.photos/seed/{CATEGORY_IMAGE_OFFSETS.get(category_name, 0) + product.id + 1}/800/800",
+            f"https://picsum.photos/seed/{CATEGORY_IMAGE_OFFSETS.get(category_name, 0) + product.id + 2}/800/800",
+        ]
+        product.image_urls = image_urls
+        product.gallery_json = image_urls
         products.append(product)
 
         variant_count = random.randint(2, 4)
@@ -313,8 +351,8 @@ def create_products(db, categories: list[Category], total: int = 240) -> list[Pr
                     size=random.choice(sizes),
                     weight=max(0.1, round(product.base_weight + random.uniform(-0.2, 0.4), 2)),
                     stock_quantity=max(3, stock_quantity // variant_count + random.randint(-5, 8)),
-                    image_url=product.image_url,
-                    extra_images_json=product.gallery_json[:2],
+                    image_url=product.image_urls[min(variant_index, len(product.image_urls) - 1)],
+                    extra_images_json=product.image_urls[:2],
                     is_default=variant_index == 0,
                 )
             )
@@ -581,9 +619,9 @@ def create_orders_and_events(db, users: list[User], products: list[Product], tot
 
 def create_marketing_and_ops(db, products: list[Product]) -> None:
     banners = [
-        Banner(title="618 Mid-Year Sale", subtitle="Big discounts on electronics and home", image_url="https://example.com/banner-618.jpg", target_url="/campaign/618", status=BannerStatus.ACTIVE),
-        Banner(title="Double 11 Warmup", subtitle="Trending products with live demand", image_url="https://example.com/banner-1111.jpg", target_url="/campaign/double11", status=BannerStatus.ACTIVE),
-        Banner(title="Member Day", subtitle="Exclusive coupons for Gold and Platinum", image_url="https://example.com/banner-member.jpg", target_url="/membership", status=BannerStatus.ACTIVE),
+        Banner(title="618 Mid-Year Sale", subtitle="Big discounts on electronics and home", image_url="https://picsum.photos/seed/banner618/1280/720", target_url="/campaign/618", status=BannerStatus.ACTIVE),
+        Banner(title="Double 11 Warmup", subtitle="Trending products with live demand", image_url="https://picsum.photos/seed/banner1111/1280/720", target_url="/campaign/double11", status=BannerStatus.ACTIVE),
+        Banner(title="Member Day", subtitle="Exclusive coupons for Gold and Platinum", image_url="https://picsum.photos/seed/bannermember/1280/720", target_url="/membership", status=BannerStatus.ACTIVE),
     ]
     for banner in banners:
         banner.click_count = random.randint(180, 1200)
@@ -635,6 +673,8 @@ def create_recommendation_cache(db) -> None:
                         "score": round(random.uniform(1.2, 9.8), 3),
                         "reason": random.choice(["collaborative_filtering", "content_based", "business_rule"]),
                         "category_name": product.category.name,
+                        "image_url": product.image_url,
+                        "thumbnail_url": product.thumbnail_url,
                     }
                     for product in picks
                 ],

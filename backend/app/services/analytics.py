@@ -307,6 +307,10 @@ def frequently_bought_together(db: Session, product_id: int) -> list[dict]:
             for candidate in product_ids:
                 if candidate != product_id:
                     counts[candidate] += 1
+    product_images = {
+        product.id: {"image_url": product.image_url, "thumbnail_url": product.thumbnail_url}
+        for product in db.query(Product).filter(Product.id.in_(list(counts.keys()))).all()
+    }
     return [
         {
             "product_id": candidate_id,
@@ -314,12 +318,14 @@ def frequently_bought_together(db: Session, product_id: int) -> list[dict]:
             "score": float(score),
             "reason": "co_occurrence",
             "category_name": "",
+            "image_url": product_images.get(candidate_id, {}).get("image_url"),
+            "thumbnail_url": product_images.get(candidate_id, {}).get("thumbnail_url"),
         }
         for candidate_id, score in counts.most_common(6)
     ]
 
 
-def collaborative_filtering_recommendations(items_df: pd.DataFrame, user_id: int) -> list[dict]:
+def collaborative_filtering_recommendations(db: Session, items_df: pd.DataFrame, user_id: int) -> list[dict]:
     matrix = items_df.pivot_table(index="customer_id", columns="product_id", values="quantity", aggfunc="sum", fill_value=0)
     if user_id not in matrix.index or len(matrix.index) < 2:
         return []
@@ -336,6 +342,10 @@ def collaborative_filtering_recommendations(items_df: pd.DataFrame, user_id: int
         for row in items_df.loc[items_df["customer_id"] == neighbor_id].itertuples():
             if row.product_id not in user_items:
                 candidate_scores[row.product_id] += float(score) * float(row.quantity)
+    product_images = {
+        product.id: {"image_url": product.image_url, "thumbnail_url": product.thumbnail_url}
+        for product in db.query(Product).filter(Product.id.in_(list(candidate_scores.keys()))).all()
+    }
 
     return [
         {
@@ -344,6 +354,8 @@ def collaborative_filtering_recommendations(items_df: pd.DataFrame, user_id: int
             "score": round(score, 3),
             "reason": "collaborative_filtering",
             "category_name": categories.get(product_id, ""),
+            "image_url": product_images.get(product_id, {}).get("image_url"),
+            "thumbnail_url": product_images.get(product_id, {}).get("thumbnail_url"),
         }
         for product_id, score in sorted(candidate_scores.items(), key=lambda item: item[1], reverse=True)[:8]
     ]
@@ -374,6 +386,8 @@ def content_based_recommendations(db: Session, product_id: int) -> list[dict]:
                 "score": round(score, 3),
                 "reason": "content_based",
                 "category_name": candidate.category.name,
+                "image_url": candidate.image_url,
+                "thumbnail_url": candidate.thumbnail_url,
             }
         )
     return sorted(candidates, key=lambda item: item["score"], reverse=True)[:8]
@@ -405,7 +419,7 @@ def recommend_products(db: Session, user: User, product_id: int | None = None) -
     items_df = _items_dataframe(db)
     recommendations: list[dict] = []
     if not items_df.empty:
-        recommendations.extend(collaborative_filtering_recommendations(items_df, user.id))
+        recommendations.extend(collaborative_filtering_recommendations(db, items_df, user.id))
         if product_id is not None:
             recommendations.extend(frequently_bought_together(db, product_id))
             recommendations.extend(content_based_recommendations(db, product_id))
@@ -424,6 +438,8 @@ def recommend_products(db: Session, user: User, product_id: int | None = None) -
                 "score": 0.1,
                 "reason": "fallback",
                 "category_name": product.category.name,
+                "image_url": product.image_url,
+                "thumbnail_url": product.thumbnail_url,
             }
 
     blended = list(deduped.values())[:8]
@@ -441,13 +457,25 @@ def trending_products(db: Session, limit: int = 20) -> list[dict]:
     items = db.query(OrderItem).join(Order).filter(Order.created_at >= seven_days_ago).all()
     scores: dict[int, float] = defaultdict(float)
     product_names: dict[int, str] = {}
+    product_images: dict[int, dict[str, str | None]] = {}
     for item in items:
         score = item.quantity / max((datetime.utcnow() - item.order.created_at).days + 1, 1)
         scores[item.product_id] += score
         product_names[item.product_id] = item.product.name
+        product_images[item.product_id] = {
+            "image_url": item.product.image_url,
+            "thumbnail_url": item.product.thumbnail_url,
+        }
     ordered = sorted(scores.items(), key=lambda row: row[1], reverse=True)[:limit]
     return [
-        {"product_id": product_id, "product_name": product_names.get(product_id, f"Product {product_id}"), "score": round(score, 3), "reason": "business_rule"}
+        {
+            "product_id": product_id,
+            "product_name": product_names.get(product_id, f"Product {product_id}"),
+            "score": round(score, 3),
+            "reason": "business_rule",
+            "image_url": product_images.get(product_id, {}).get("image_url"),
+            "thumbnail_url": product_images.get(product_id, {}).get("thumbnail_url"),
+        }
         for product_id, score in ordered
     ]
 

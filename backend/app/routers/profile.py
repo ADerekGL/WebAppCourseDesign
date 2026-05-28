@@ -170,6 +170,9 @@ def wishlist(
             "product_id": item.product_id,
             "product_name": item.product.name,
             "price": item.product.price,
+            "image_url": item.product.image_url,
+            "thumbnail_url": item.product.thumbnail_url,
+            "category_name": item.product.category.name,
             "price_drop_alert": item.price_drop_alert,
             "created_at": item.created_at.isoformat(),
         }

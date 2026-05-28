@@ -1,0 +1,6 @@
+INFO:     Will watch for changes in these directories: ['C:\\Users\\°¢¸ñÀ¼¡¤Èü¶û½­\\ecommerce-analytics-app\\backend']
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [36364] using WatchFiles
+INFO:     Started server process [13456]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.

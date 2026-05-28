@@ -1,79 +1,78 @@
-# Requirements Analysis Report
+# 需求分析报告
 
-## 1. Business Scenario
+## 1. 业务场景
 
-This project targets a medium-sized online retail business that wants to combine routine e-commerce operations with data-driven sales management. The main pain point is that traditional course-demo shopping sites often stop at catalog and order features, while the course explicitly requires evidence of network application architecture design, role-based operations, operational logging, analytics, and recommendation.
+本项目面向一家希望将常规电商运营与数据驱动销售管理结合起来的中型线上零售企业。其主要痛点在于：传统课程演示型购物网站往往只做到商品目录和订单功能，而本课程明确要求展示网络应用架构设计、基于角色的操作控制、操作日志、数据分析与推荐系统能力。
 
-The proposed solution is a three-role system:
+本方案设计为一个三角色系统：
 
-- Customers browse, purchase, and receive recommendations.
-- Sales staff maintain product information and monitor activity.
-- Admin users govern sales accounts and audit performance.
+- 客户负责浏览、下单并接收推荐；
+- 销售人员负责维护商品信息与监控运营活动；
+- 管理员负责销售账号治理与绩效审计。
 
-## 2. Pain Points
+## 2. 痛点分析
 
-1. Business data is usually scattered across application tables and not prepared for analytics.
-2. Staff operations are hard to audit without explicit logging.
-3. Manual sales trend discovery is slow and subjective.
-4. Product recommendation is absent in most basic student projects.
-5. Security boundaries between customer and internal operators are often weak.
+1. 业务数据通常散落在各张应用表中，无法直接用于分析。
+2. 若缺少显式日志，员工操作很难审计。
+3. 人工发现销售趋势速度慢且主观性强。
+4. 大多数学生项目缺少商品推荐能力。
+5. 客户与内部运营角色之间的安全边界往往不足。
 
-## 3. Functional Scope
+## 3. 功能范围
 
-- Authentication, registration, login, password reset
-- Product/category management
-- Cart and checkout simulation
-- Purchase history
-- User behavior and operation logging
-- Analytics dashboard and recommendation engine
+- 身份认证、注册、登录、密码重置
+- 商品/分类管理
+- 购物车与模拟结算
+- 购买历史
+- 用户行为与操作日志
+- 分析仪表盘与推荐引擎
 
-## 4. Feasibility
+## 4. 可行性分析
 
-### Technical Feasibility
+### 技术可行性
 
-FastAPI and React are appropriate because:
+选择 FastAPI 与 React 的原因如下：
 
-- FastAPI provides clear REST APIs and Pydantic validation.
-- React supports role-specific dashboards in a single frontend.
-- PostgreSQL supports normalized transaction and event storage.
-- Pandas and Scikit-learn are sufficient for academic-level analytics.
+- FastAPI 能提供清晰的 REST API 与 Pydantic 校验；
+- React 便于在同一前端中实现不同角色的仪表盘；
+- PostgreSQL 适合规范化交易与事件存储；
+- Pandas 与 Scikit-learn 足以支撑课程级分析需求。
 
-### Operational Feasibility
+### 运行可行性
 
-The system can run locally with SQLite for development and switch to PostgreSQL for deployment. Docker Compose lowers deployment complexity and improves reproducibility.
+系统可在本地使用 SQLite 开发，在部署时切换到 PostgreSQL。Docker Compose 降低了部署复杂度，并提升了环境复现性。
 
-### Schedule Feasibility
+### 进度可行性
 
-The project is achievable for an individual if developed in phases:
+若分阶段推进，单人项目可以完成：
 
-1. Core backend and schema
-2. Frontend role flows
-3. Analytics and recommendation
-4. Testing and deployment
-5. Report polishing
+1. 核心后端与数据库模式
+2. 前端角色流程
+3. 数据分析与推荐系统
+4. 测试与部署
+5. 报告润色
 
-## 5. Development Roadmap
+## 5. 开发路线图
 
-### Phase 1
+### 阶段 1
 
-- Define roles, schema, and REST API contract
-- Implement authentication and catalog
+- 定义角色、数据库模式与 REST API 合约
+- 实现认证与商品目录
 
-### Phase 2
+### 阶段 2
 
-- Add checkout and purchase history
-- Add sales/admin management endpoints
+- 增加结算与购买历史
+- 增加销售/管理员管理接口
 
-### Phase 3
+### 阶段 3
 
-- Add event logging, dashboards, and recommendation logic
-- Complete documentation and deployment scripts
+- 增加事件日志、仪表盘与推荐逻辑
+- 完成文档与部署脚本
 
-## 6. Milestones
+## 6. 里程碑
 
-- Week 1: requirements, schema draft, architecture confirmation
-- Week 2: authentication and product APIs
-- Week 3: frontend catalog and orders
-- Week 4: analytics and recommendation
-- Week 5: testing and reports
-
+- 第 1 周：需求整理、模式草稿、架构确认
+- 第 2 周：认证与商品接口
+- 第 3 周：前端目录与订单流程
+- 第 4 周：分析与推荐
+- 第 5 周：测试与报告
