@@ -6,11 +6,12 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..deps import get_optional_user, require_roles
 from ..models import Role, User
-from ..schemas import RecommendationItem
+from ..schemas import RecommendationExplanationRead, RecommendationItem
 from ..services.analytics import (
     business_rule_recommendations,
     content_based_recommendations,
     frequently_bought_together,
+    recommendation_explanation,
     recommend_products,
     trending_products,
 )
@@ -42,3 +43,12 @@ def trending(
 @router.get("/frequently-bought-together/{product_id}", response_model=list[RecommendationItem])
 def bought_together(product_id: int, db: Session = Depends(get_db)) -> list[dict]:
     return frequently_bought_together(db, product_id)
+
+
+@router.get("/explain/{product_id}", response_model=RecommendationExplanationRead)
+def explain(
+    product_id: int,
+    db: Session = Depends(get_db),
+    user: User | None = Depends(get_optional_user),
+) -> dict:
+    return recommendation_explanation(db, product_id, user)

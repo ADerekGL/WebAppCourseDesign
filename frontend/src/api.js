@@ -57,6 +57,7 @@ export const api = {
   personalized: (token) => apiFetch("/api/recommendations/personalized", {}, token),
   similar: (productId) => apiFetch(`/api/recommendations/similar/${productId}`),
   boughtTogether: (productId) => apiFetch(`/api/recommendations/frequently-bought-together/${productId}`),
+  explainRecommendation: (productId, token) => apiFetch(`/api/recommendations/explain/${productId}`, {}, token),
   checkout: (body, token) => apiFetch("/orders/checkout", { method: "POST", body: JSON.stringify(body) }, token),
   orderHistory: (token) => apiFetch("/orders/history", {}, token),
   adminOrders: (params = {}, token) => apiFetch(`/orders?${new URLSearchParams(compactParams(params)).toString()}`, {}, token),
@@ -67,6 +68,7 @@ export const api = {
   updateAddress: (id, body, token) => apiFetch(`/profile/addresses/${id}`, { method: "PATCH", body: JSON.stringify(body) }, token),
   deleteAddress: (id, token) => apiFetch(`/profile/addresses/${id}`, { method: "DELETE" }, token),
   dashboard: (token) => apiFetch("/analytics/dashboard", {}, token),
+  businessInsights: (token) => apiFetch("/analytics/insights", {}, token),
   warRoom: async (token) => {
     try {
       return await apiFetch("/analytics/war-room", {}, token);

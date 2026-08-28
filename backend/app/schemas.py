@@ -237,6 +237,40 @@ class RecommendationItem(BaseModel):
     thumbnail_url: Optional[str] = None
 
 
+class InsightSignalRead(BaseModel):
+    label: str
+    detail: str
+    tone: Literal["positive", "warning", "neutral"] = "neutral"
+
+
+class InsightActionRead(BaseModel):
+    title: str
+    detail: str
+
+
+class InsightMetricRead(BaseModel):
+    label: str
+    value: str
+    detail: str = ""
+
+
+class BusinessInsightRead(BaseModel):
+    headline: str
+    metrics: list[InsightMetricRead]
+    signals: list[InsightSignalRead]
+    actions: list[InsightActionRead]
+    recommendation_health: dict[str, Any]
+    evaluation_notes: list[str] = Field(default_factory=list)
+
+
+class RecommendationExplanationRead(BaseModel):
+    product_id: int
+    product_name: str
+    summary: str
+    reasons: list[InsightSignalRead]
+    score: float
+
+
 class SalesAccountCreate(BaseModel):
     username: str
     email: EmailStr

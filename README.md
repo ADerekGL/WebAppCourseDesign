@@ -79,11 +79,13 @@ Open `http://127.0.0.1:5173`.
 - Enriched order model: workflow states, timeline, payment records, shipping tracking
 - Marketing and search entities: banners, search logs, hot search trends
 - Analytics endpoints for RFM, cohorts, funnel, geography, stockout, churn, recommendation metrics
+- AI operating brief endpoint for business signals and action suggestions
 - Hybrid recommendation APIs:
   - `GET /api/recommendations/personalized`
   - `GET /api/recommendations/similar/{product_id}`
   - `GET /api/recommendations/trending`
   - `GET /api/recommendations/frequently-bought-together/{product_id}`
+  - `GET /api/recommendations/explain/{product_id}`
 
 ## Large Data Seeding
 
@@ -127,4 +129,4 @@ Course-facing documents are in `docs/`:
 
 ## Current Status
 
-This pass stabilizes login/runtime, expands the backend data model and analytics services, and adds the enhanced seed path. The React frontend still needs a broader UI refactor to expose all new backend capabilities cleanly, especially the dedicated large-screen dashboard and richer customer center flows.
+This pass stabilizes login/runtime, expands the backend data model and analytics services, and adds the enhanced seed path. The React frontend now exposes an AI operating brief, recommendation explanations, and the existing large-screen dashboard flows more clearly for interview/demo use.

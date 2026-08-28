@@ -6,7 +6,7 @@ from datetime import date, datetime, timedelta
 import numpy as np
 import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from ..models import (
     DailyStat,
@@ -597,6 +597,282 @@ def recommendation_metrics(db: Session) -> dict:
         "diversity": diversity,
         "mock_ctr": 6.8,
         "mock_conversion_rate": 3.1,
+    }
+
+
+def business_insights(db: Session) -> dict:
+    items_df = _items_dataframe(db)
+    events_df = _events_dataframe(db)
+    rec_metrics = recommendation_metrics(db)
+    low_stock_items = inventory_alerts(db)
+    churn_risks = churn_predictions(db)
+
+    if items_df.empty and events_df.empty:
+        return {
+            "headline": "No operational data available yet. Seed data to unlock recommendation, forecast, and monitoring signals.",
+            "metrics": [
+                {"label": "7d GMV", "value": "CNY 0", "detail": "No transactional history"},
+                {"label": "7d Orders", "value": "0", "detail": "No orders yet"},
+                {"label": "AOV", "value": "CNY 0", "detail": "Average order value"},
+                {"label": "Recommendation Coverage", "value": "0%", "detail": "No recommendation cache"},
+            ],
+            "signals": [
+                {"label": "Data status", "detail": "Seeded data is required to surface product and user signals.", "tone": "warning"}
+            ],
+            "actions": [
+                {"title": "Load synthetic data", "detail": "Run the enhanced seed job so the platform can surface operational insights."},
+            ],
+            "recommendation_health": rec_metrics,
+            "evaluation_notes": [
+                "Recommendation metrics are offline proxies derived from cached recommendations.",
+                "Forecast and churn signals are designed for course-level demonstrations, not financial decisions.",
+            ],
+        }
+
+    items_df = items_df.copy()
+    items_df["created_at"] = pd.to_datetime(items_df["created_at"])
+    events_df = events_df.copy()
+    events_df["created_at"] = pd.to_datetime(events_df["created_at"])
+
+    today = pd.Timestamp(datetime.utcnow().date())
+    window_start = today - pd.Timedelta(days=7)
+    prev_window_start = today - pd.Timedelta(days=14)
+
+    recent_items = items_df[items_df["created_at"] >= window_start]
+    prior_items = items_df[(items_df["created_at"] < window_start) & (items_df["created_at"] >= prev_window_start)]
+    gmv_7d = float(recent_items["revenue"].sum()) if not recent_items.empty else 0.0
+    gmv_prev_7d = float(prior_items["revenue"].sum()) if not prior_items.empty else 0.0
+    orders_7d = int(recent_items["order_id"].nunique()) if not recent_items.empty else 0
+    aov = gmv_7d / max(orders_7d, 1)
+    gmv_growth = round(((gmv_7d - gmv_prev_7d) / gmv_prev_7d) * 100, 2) if gmv_prev_7d else 0.0
+
+    recent_events = events_df[events_df["created_at"] >= window_start]
+    browse_count = int((recent_events["event_type"] == EventType.BROWSE.value).sum()) if not recent_events.empty else 0
+    purchase_count = int((recent_events["event_type"] == EventType.PURCHASE.value).sum()) if not recent_events.empty else 0
+    conversion_rate = round((purchase_count / max(browse_count, 1)) * 100, 2) if browse_count else 0.0
+
+    category_momentum = []
+    if not recent_items.empty:
+      recent_category = recent_items.groupby("category_name")["revenue"].sum()
+      prior_category = prior_items.groupby("category_name")["revenue"].sum() if not prior_items.empty else pd.Series(dtype=float)
+      all_categories = sorted(set(recent_category.index.tolist()) | set(prior_category.index.tolist()))
+      for category_name in all_categories:
+          recent_value = float(recent_category.get(category_name, 0.0))
+          prior_value = float(prior_category.get(category_name, 0.0)) if not prior_category.empty else 0.0
+          delta = recent_value - prior_value
+          growth = round((delta / prior_value) * 100, 2) if prior_value else 0.0
+          category_momentum.append((category_name, recent_value, delta, growth))
+      category_momentum.sort(key=lambda row: row[2], reverse=True)
+
+    top_category = category_momentum[0] if category_momentum else ("Unknown", 0.0, 0.0, 0.0)
+    top_product_row = (
+        recent_items.groupby(["product_id", "product_name"])["quantity"].sum().sort_values(ascending=False).head(1)
+        if not recent_items.empty
+        else pd.Series(dtype=float)
+    )
+    top_product_name = "N/A"
+    if not top_product_row.empty:
+        product_index = top_product_row.index[0]
+        top_product_name = product_index[1] if isinstance(product_index, tuple) else str(product_index)
+
+    signals = [
+        {
+            "label": "Category momentum",
+            "detail": f"{top_category[0]} generated CNY {top_category[1]:.2f} in the last 7 days, {top_category[3]:.2f}% vs the previous window.",
+            "tone": "positive" if top_category[2] >= 0 else "warning",
+        },
+        {
+            "label": "Conversion proxy",
+            "detail": f"{conversion_rate:.2f}% browse-to-purchase proxy, based on recent event logs.",
+            "tone": "positive" if conversion_rate >= 4 else "neutral",
+        },
+        {
+            "label": "Inventory pressure",
+            "detail": f"{len(low_stock_items)} products are at or below safety stock.",
+            "tone": "warning" if low_stock_items else "neutral",
+        },
+        {
+            "label": "Retention risk",
+            "detail": f"{len(churn_risks)} customers are flagged as reactivation candidates.",
+            "tone": "warning" if churn_risks else "neutral",
+        },
+    ]
+
+    actions = []
+    if top_category[0] != "Unknown":
+        actions.append(
+            {
+                "title": "Boost top category exposure",
+                "detail": f"Prioritize {top_category[0]} in homepage modules and campaign slots to capture current momentum.",
+            }
+        )
+    if low_stock_items:
+        risky_product = low_stock_items[0]
+        actions.append(
+            {
+                "title": "Replenish stock first",
+                "detail": f"{risky_product['product_name']} is within {risky_product['days_of_inventory']} days of inventory.",
+            }
+        )
+    if churn_risks:
+        risky_user = churn_risks[0]
+        actions.append(
+            {
+                "title": "Run a reactivation campaign",
+                "detail": f"Target {risky_user['username']} and similar dormant users with a re-engagement incentive.",
+            }
+        )
+    if rec_metrics.get("coverage", 0) < 50:
+        actions.append(
+            {
+                "title": "Refresh recommendation cache",
+                "detail": "Coverage is below a healthy threshold, so a cache refresh or broader fallback policy is needed.",
+            }
+        )
+
+    if not actions:
+        actions.append(
+            {
+                "title": "Maintain current operating mix",
+                "detail": "Current signals are balanced, so the platform can keep the present recommendation and inventory policy.",
+            }
+        )
+
+    headline = (
+        f"7-day GMV reached CNY {gmv_7d:,.2f} with {gmv_growth:+.2f}% growth vs the previous window, "
+        f"while {len(low_stock_items)} low-stock items and {len(churn_risks)} reactivation candidates define the next operating focus."
+    )
+
+    return {
+        "headline": headline,
+        "metrics": [
+            {"label": "7d GMV", "value": f"CNY {gmv_7d:,.0f}", "detail": f"{gmv_growth:+.2f}% vs previous 7d"},
+            {"label": "7d Orders", "value": str(orders_7d), "detail": "Completed order count"},
+            {"label": "AOV", "value": f"CNY {aov:,.2f}", "detail": "Average order value"},
+            {"label": "Browse->Buy", "value": f"{conversion_rate:.2f}%", "detail": "Event-log conversion proxy"},
+        ],
+        "signals": signals,
+        "actions": actions,
+        "recommendation_health": rec_metrics,
+        "evaluation_notes": [
+            f"Top product momentum: {top_product_name}",
+            "Recommendation health is based on cached coverage, diversity, and mock CTR proxies.",
+            "Forecast and churn outputs are course-scale heuristics built for product discussion, not production decisioning.",
+        ],
+    }
+
+
+def recommendation_explanation(db: Session, product_id: int, user: User | None = None) -> dict:
+    product = (
+        db.query(Product)
+        .options(joinedload(Product.category))
+        .filter(Product.id == product_id, Product.is_active.is_(True))
+        .first()
+    )
+    if not product:
+        return {
+            "product_id": product_id,
+            "product_name": f"Product {product_id}",
+            "summary": "The product could not be found.",
+            "reasons": [],
+            "score": 0.0,
+        }
+
+    items_df = _items_dataframe(db)
+    reasons: list[dict[str, str]] = []
+    score = 0.0
+
+    if not items_df.empty:
+        items_df = items_df.copy()
+        items_df["created_at"] = pd.to_datetime(items_df["created_at"])
+        window_start = pd.Timestamp(datetime.utcnow().date()) - pd.Timedelta(days=14)
+        recent_product_sales = items_df[(items_df["product_id"] == product_id) & (items_df["created_at"] >= window_start)]
+        category_sales = items_df[(items_df["category_name"] == product.category.name) & (items_df["created_at"] >= window_start)]
+        if not recent_product_sales.empty:
+            recent_revenue = float(recent_product_sales["revenue"].sum())
+            reasons.append(
+                {
+                    "label": "Demand signal",
+                    "detail": f"{product.name} generated CNY {recent_revenue:,.2f} in the last 14 days, showing active demand.",
+                    "tone": "positive",
+                }
+            )
+            score += 28
+        if not category_sales.empty:
+            category_revenue = float(category_sales["revenue"].sum())
+            reasons.append(
+                {
+                    "label": "Category fit",
+                    "detail": f"{product.category.name} is active in the recent sales window with CNY {category_revenue:,.2f} revenue.",
+                    "tone": "positive",
+                }
+            )
+            score += 22
+
+    if product.brand:
+        brand_match = db.query(Product).filter(Product.brand == product.brand, Product.id != product.id, Product.is_active.is_(True)).count()
+        if brand_match:
+            reasons.append(
+                {
+                    "label": "Brand adjacency",
+                    "detail": f"There are {brand_match} active products in the same brand family, which improves cross-sell consistency.",
+                    "tone": "neutral",
+                }
+            )
+            score += 10
+
+    tag_overlap = len(set(product.tags_json or []))
+    if tag_overlap:
+        reasons.append(
+            {
+                "label": "Tag coverage",
+                "detail": f"{tag_overlap} product tags help the ranking layer explain the product's positioning.",
+                "tone": "neutral",
+            }
+        )
+        score += min(tag_overlap * 4, 16)
+
+    bundle_candidates = frequently_bought_together(db, product_id)[:2]
+    if bundle_candidates:
+        names = " and ".join(item["product_name"] for item in bundle_candidates[:2])
+        reasons.append(
+            {
+                "label": "Bundle potential",
+                "detail": f"It is frequently purchased together with {names}, which supports cross-sell modules.",
+                "tone": "positive",
+            }
+        )
+        score += 25
+
+    if user and product.category.name in (user.preferred_categories_json or []):
+        reasons.append(
+            {
+                "label": "Audience fit",
+                "detail": f"The current user profile already prefers {product.category.name}, so this item fits the browsing intent.",
+                "tone": "positive",
+            }
+        )
+        score += 15
+
+    if not reasons:
+        reasons.append(
+            {
+                "label": "Fallback reasoning",
+                "detail": "The item is surfaced through category and business-rule fallback logic when behavioral data is sparse.",
+                "tone": "neutral",
+            }
+        )
+
+    summary = f"{product.name} is recommended through a mix of demand, category, and cross-sell signals."
+    if user and product.category.name in (user.preferred_categories_json or []):
+        summary = f"{product.name} matches the user's category preference and is reinforced by demand and bundle signals."
+
+    return {
+        "product_id": product.id,
+        "product_name": product.name,
+        "summary": summary,
+        "reasons": reasons[:4],
+        "score": round(min(score, 100.0), 2),
     }
 
 

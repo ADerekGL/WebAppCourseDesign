@@ -82,6 +82,7 @@ export default function App() {
     reviews: [],
     boughtTogether: [],
     similar: [],
+    explanation: null,
     selectedVariantId: null,
     selectedImageUrl: null,
   });
@@ -119,6 +120,7 @@ export default function App() {
     summary: null,
     dashboard: null,
     warRoom: null,
+    insights: null,
     categoryPerformance: [],
     geography: [],
     rfm: [],
@@ -321,16 +323,18 @@ export default function App() {
         api.getReviews(productId),
         api.boughtTogether(productId),
         api.similar(productId),
+        api.explainRecommendation(productId, auth?.access_token),
       ];
       if (auth && isCustomer) {
         tasks.push(api.browseProduct(productId, 52, auth.access_token));
       }
-      const [detail, reviews, boughtTogether, similar] = await Promise.all(tasks);
+      const [detail, reviews, boughtTogether, similar, explanation] = await Promise.all(tasks);
       setProductState({
         detail,
         reviews,
         boughtTogether,
         similar,
+        explanation,
         selectedVariantId: detail.variants?.find((variant) => variant.is_default)?.id || detail.variants?.[0]?.id || null,
         selectedImageUrl: detail.image_url || detail.image_urls?.[0] || detail.thumbnail_url || null,
       });
@@ -389,6 +393,7 @@ export default function App() {
     const results = await Promise.allSettled([
       api.dashboard(auth.access_token),
       api.warRoom(auth.access_token),
+      api.businessInsights(auth.access_token),
       api.categoryPerformance(auth.access_token),
       api.geography(auth.access_token),
       api.rfm(auth.access_token),
@@ -401,6 +406,7 @@ export default function App() {
     const [
       dashboardResult,
       warRoomResult,
+      insightsResult,
       categoryPerformanceResult,
       geographyResult,
       rfmResult,
@@ -421,6 +427,7 @@ export default function App() {
       ...current,
       dashboard: dashboardResult.status === "fulfilled" ? dashboardResult.value : current.dashboard,
       warRoom: warRoomResult.status === "fulfilled" ? warRoomResult.value : current.warRoom,
+      insights: insightsResult.status === "fulfilled" ? insightsResult.value : current.insights,
       categoryPerformance: categoryPerformanceResult.status === "fulfilled" ? categoryPerformanceResult.value : current.categoryPerformance,
       geography: geographyResult.status === "fulfilled" ? geographyResult.value : current.geography,
       rfm: rfmResult.status === "fulfilled" ? rfmResult.value : current.rfm,
@@ -452,6 +459,7 @@ export default function App() {
         api.logs(auth.access_token),
         api.stockouts(auth.access_token),
         api.inventoryAlerts(auth.access_token),
+        api.businessInsights(auth.access_token),
         isAdmin ? api.salesAccounts(auth.access_token) : Promise.resolve([]),
       ]);
       const [
@@ -463,6 +471,7 @@ export default function App() {
         logsResult,
         stockoutsResult,
         inventoryAlertsResult,
+        insightsResult,
         salesAccountsResult,
       ] = results;
       const adminError = results.find((item) => item.status === "rejected");
@@ -482,6 +491,7 @@ export default function App() {
         logs: logsResult.status === "fulfilled" ? logsResult.value : current.logs,
         stockouts: stockoutsResult.status === "fulfilled" ? stockoutsResult.value : current.stockouts,
         inventoryAlerts: inventoryAlertsResult.status === "fulfilled" ? inventoryAlertsResult.value : current.inventoryAlerts,
+        insights: insightsResult.status === "fulfilled" ? insightsResult.value : current.insights,
         salesAccounts: salesAccountsResult.status === "fulfilled" ? salesAccountsResult.value : current.salesAccounts,
       }));
       if (summaryResult.status === "rejected" && !adminData.summary) {
@@ -791,7 +801,7 @@ export default function App() {
               />
             ) : null}
             {route === "/admin" ? (
-              <AdminOverviewPage summary={adminData.summary} loading={loading.admin} error={errors.admin} navigate={navigate} onRetry={() => void loadAdminView()} />
+              <AdminOverviewPage summary={adminData.summary} insights={adminData.insights} loading={loading.admin} error={errors.admin} navigate={navigate} onRetry={() => void loadAdminView()} />
             ) : null}
             {route === "/admin/products" ? (
               <AdminProductsPage
@@ -1337,7 +1347,7 @@ function ProductPage({ productState, setProductState, loading, onBack, onAddToCa
     setActiveTab("description");
   }, [productState.detail?.id]);
   if (loading || !productState.detail) return <LoadingPanel label="Loading product detail..." />;
-  const { detail, reviews, boughtTogether, similar, selectedVariantId, selectedImageUrl } = productState;
+  const { detail, reviews, boughtTogether, similar, explanation, selectedVariantId, selectedImageUrl } = productState;
   const selectedVariant = detail.variants?.find((variant) => variant.id === selectedVariantId) || detail.variants?.[0];
   const galleryImages = Array.from(
     new Set(
@@ -1474,6 +1484,28 @@ function ProductPage({ productState, setProductState, loading, onBack, onAddToCa
       ) : null}
       {activeTab === "recommendations" ? (
         <>
+          {explanation ? (
+            <section className="panel product-tab-card">
+              <div className="section-title">
+                <h3>Why this item is surfaced</h3>
+                <span>Recommendation explanation</span>
+              </div>
+              <p>{explanation.summary}</p>
+              <div className="stack-list mini">
+                {(explanation.reasons || []).map((reason) => (
+                  <div className="list-row" key={`${detail.id}-${reason.label}`}>
+                    <div>
+                      <strong>{reason.label}</strong>
+                      <p>{reason.detail}</p>
+                    </div>
+                    <span className={`status-pill ${reason.tone === "positive" ? "success" : reason.tone === "warning" ? "warning" : "info"}`}>
+                      {reason.tone}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
           <RecommendationStrip title="Frequently Bought Together" items={boughtTogether} onOpen={onOpenProduct} onAdd={onAddToCart} />
           <RecommendationStrip title="More Like This" items={similar} onOpen={onOpenProduct} onAdd={onAddToCart} />
         </>
@@ -1787,6 +1819,64 @@ function DashboardPage({ data, loading, error, range, setRange, onRetry }) {
         <KpiCard label="Today Orders" value={data.warRoom.kpis.orders_today} />
         <KpiCard label="Low Stock Alerts" value={data.warRoom.inventory_alerts.length} />
       </section>
+      {data.insights ? (
+        <section className="panel">
+          <div className="section-title">
+            <div>
+              <h3>AI Operating Brief</h3>
+              <span>{data.insights.headline}</span>
+            </div>
+            <strong>{data.insights.recommendation_health?.mock_ctr ? `CTR ${data.insights.recommendation_health.mock_ctr}%` : "Model Health"}</strong>
+          </div>
+          <div className="summary-grid">
+            {data.insights.metrics.map((metric) => (
+              <KpiCard key={metric.label} label={metric.label} value={metric.value} />
+            ))}
+          </div>
+          <div className="insight-grid">
+            <section className="insight-panel">
+              <div className="section-title compact">
+                <h4>Operational Signals</h4>
+                <span>Live signals</span>
+              </div>
+              <div className="stack-list mini">
+                {data.insights.signals.map((signal) => (
+                  <div className="list-row" key={signal.label}>
+                    <div>
+                      <strong>{signal.label}</strong>
+                      <p>{signal.detail}</p>
+                    </div>
+                    <span className={`status-pill ${signal.tone === "positive" ? "success" : signal.tone === "warning" ? "warning" : "info"}`}>{signal.tone}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+            <section className="insight-panel">
+              <div className="section-title compact">
+                <h4>Next Actions</h4>
+                <span>Decision support</span>
+              </div>
+              <div className="stack-list mini">
+                {data.insights.actions.map((action) => (
+                  <div className="list-row" key={action.title}>
+                    <div>
+                      <strong>{action.title}</strong>
+                      <p>{action.detail}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+          <div className="stack-list mini insight-notes">
+            {data.insights.evaluation_notes.map((note) => (
+              <div className="list-row" key={note}>
+                <p>{note}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
       <section className="dashboard-grid">
         <ChartPanel className="span-2" title="Sales Trend: Today vs Yesterday">
           <SalesTrendChart data={data.warRoom.trend_today_vs_yesterday} />
@@ -1817,7 +1907,7 @@ function DashboardPage({ data, loading, error, range, setRange, onRetry }) {
   );
 }
 
-function AdminOverviewPage({ summary, loading, error, navigate, onRetry }) {
+function AdminOverviewPage({ summary, insights, loading, error, navigate, onRetry }) {
   if (loading && !summary) return <LoadingPanel label="Loading admin summary..." />;
   if (!loading && error && !summary) {
     return <PageErrorState title="Failed to load admin summary" message={error} onRetry={onRetry} />;
@@ -1831,6 +1921,24 @@ function AdminOverviewPage({ summary, loading, error, navigate, onRetry }) {
         <KpiCard label="New Users" value={summary.new_users} />
         <KpiCard label="Low Stock Count" value={summary.low_stock_count} />
       </section>
+      {insights ? (
+        <section className="panel">
+          <div className="section-title">
+            <h3>Operating Summary</h3>
+            <span>{insights.headline}</span>
+          </div>
+          <div className="stack-list mini">
+            {insights.actions.slice(0, 3).map((action) => (
+              <div className="list-row" key={action.title}>
+                <div>
+                  <strong>{action.title}</strong>
+                  <p>{action.detail}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
       <section className="panel">
         <div className="section-title">
           <h3>7 Day Revenue Sparkline</h3>

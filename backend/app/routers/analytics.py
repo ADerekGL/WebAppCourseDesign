@@ -11,6 +11,7 @@ from ..models import EventLog, Role, User
 from ..schemas import DashboardResponse, RecommendationItem
 from ..services.analytics import (
     build_dashboard,
+    business_insights,
     business_rule_recommendations,
     category_performance_matrix,
     churn_predictions,
@@ -165,6 +166,14 @@ def recommendation_metric_summary(
     user: User = Depends(require_roles(Role.SALES, Role.ADMIN)),
 ) -> dict:
     return analytics_guard("Recommendation metrics", lambda: recommendation_metrics(db))
+
+
+@router.get("/insights")
+def insights(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles(Role.SALES, Role.ADMIN)),
+) -> dict:
+    return analytics_guard("Business insights", lambda: business_insights(db))
 
 
 @router.get("/recommendations", response_model=list[RecommendationItem])
